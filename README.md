@@ -6,16 +6,18 @@ Ce fichier permet de comprendre l'avancée de notre projet et comment utiliser l
 
 Le projet est organisé en plusieurs branches Git, chacune correspondant à une étape du pipeline.
 
-```
-indexation                  → Chargement et nettoyage des données
-feature/raphael-filtrage    → Prétraitement, filtrage, lemmatisation
-étiquetage-automatique      → Étiquetage par lexique NRC + émojis
-learning-modele-logistique  → Machine learning (régression logistique)
-```
+-indexation : Chargement et nettoyage des données
+
+-feature/raphael-filtrage : Prétraitement, filtrage, lemmatisation
+
+-étiquetage-automatique : Étiquetage par lexique NRC + émojis
+
+-learning-modele-logistique : Machine learning (régression logistique)
 
 ## Fichiers Python par branche
 
 ### Branche `indexation` / `feature/raphael-filtrage`
+(la branche `feature/raphael-filtrage` a été merged)
 
 #### `indexation.py`
 Chargement du dataset brut et premier nettoyage.
@@ -28,9 +30,9 @@ Chargement du dataset brut et premier nettoyage.
 #### `lemmatisation.py`
 Prétraitement complet des tweets et extraction de features émotionnelles.
 - **Filtrage stop-words** via spaCy (`en_core_web_sm`), avec conservation des négations (`not`, `never`, `no`...)
-- **Répétitions consécutives** : mots répétés ≥ 2 fois d'affilée conservés (accentuation émotionnelle)
+- **Répétitions consécutives** : les mots répétés plus de 2 fois d'affilée conservés 
 - **Émojis** conservés via la librairie `emoji`
-- **Lemmatisation** avec exception pour les mots à lettres répétées (`WHATTTTT` → conservé tel quel)
+- **Lemmatisation** avec exception pour les mots à lettres répétées 
 - **Features numériques** calculées sur le texte original :
   - `pct_majuscules` : % de lettres majuscules
   - `exclamations` : nombre de `!`
@@ -42,12 +44,6 @@ Prétraitement complet des tweets et extraction de features émotionnelles.
 Exploration rapide du dataset : dimensions, colonnes, premières lignes.
 - **Bibliothèques** : `pandas`
 
-#### `general.py`
-Utilitaires généraux partagés entre les scripts.
-- **Bibliothèques** : `pandas`
-
----
-
 ### Branche `étiquetage-automatique`
 
 #### `EI2.py`
@@ -58,15 +54,12 @@ Utilitaires généraux partagés entre les scripts.
 - Produit une étiquette par tweet selon le score dominant
 - **Bibliothèques** : `pandas`, `nrclex`, `re`, `collections`
 
----
-
 ### Branche `learning-modele-logistique`
 
 #### `etiquetage_auto.py`
-Étiquetage automatique de tweets via un modèle pré-entraîné HuggingFace.
+Étiquetage automatique de tweets via un modèle pré-entraîné par HuggingFace.
 - Modèle : `j-hartmann/emotion-english-distilroberta-base`
 - Échantillonne N tweets depuis `data/tweets_traites.csv` (paramétrable, 10 000 par défaut)
-- Traitement par batch (batch_size=64) avec barre de progression
 - Remapping `joy` → `happiness`
 - Export vers `data/tweets_entrainement.csv`
 - **Bibliothèques** : `pandas`, `transformers`, `torch`, `tqdm`
@@ -89,10 +82,10 @@ Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`bdd_etique
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`
 
 #### `evaluation_ml.py`
-Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre la vérité terrain manuelle.
+Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre ce qui a été fait manuellement.
 - Entraîne le modèle sur les tweets sans annotation manuelle
 - Évalue sur les ~297 tweets annotés à la main
-- Compare : **(A)** ML vs manuel, **(B)** règles auto vs manuel
+- Compare le modèle ML et l'étiquetage auto sur les tweets étiquetés manuellement.
 - **Bibliothèques** : `pandas`, `numpy`, `scikit-learn`
 
 #### `evaluation_new.py`
