@@ -14,6 +14,8 @@ Le projet est organisé en plusieurs branches Git, chacune correspondant à une 
 
 -learning-modele-logistique : Machine learning (régression logistique)
 
+-apprentissage : Réseau de neurones (classification des émotions)
+
 ## Fichiers Python par branche
 
 ### Branche `indexation` / `feature/raphael-filtrage`
@@ -53,6 +55,15 @@ Exploration rapide du dataset : dimensions, colonnes, premières lignes.
 - Associe des émojis à chaque catégorie d'émotion (joie, tristesse, peur, colère...)
 - Produit une étiquette par tweet selon le score dominant
 - **Bibliothèques** : `pandas`, `nrclex`, `re`, `collections`
+
+#### `etiquetage_automatique.py`
+Version enrichie de l'étiquetage par règles (`EI2.py`), augmentée d'un vocabulaire spécifique au contexte COVID.
+- Lexique NRC (émotions + valence positive/negative)
+- **Vocabulaire COVID** (catégories `neutral`, `fear`, `joy`) lemmatisé avec spaCy (`en_core_web_sm`) pour correspondre au texte lemmatisé
+- Dictionnaire d'émojis associés à chaque émotion (poids ×2)
+- Gestion des négations (inversion de la valence) et poids d'intensité (MAJUSCULES, lettres répétées, `!`)
+- Lit `tweets_traites.csv`, produit `bdd_etiquetee.csv` (une colonne par catégorie NRC + `emotion` + `sentiment`)
+- **Bibliothèques** : `pandas`, `spacy` (`en_core_web_sm`), `nrclex`, `re`, `collections`, `json`
 
 ### Branche `learning-modele-logistique`
 
@@ -103,6 +114,18 @@ Génère toutes les figures et métriques du rapport final.
 - Calcule le kappa de Cohen
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
 
+### Branche `apprentissage`
+
+#### `RDN.py`
+Classification des émotions par réseau de neurones (alternative à la régression logistique).
+- **Représentation** : embeddings spaCy `en_core_web_md` (vecteurs de dimension 300)
+- **Cibles** : scores des 7 émotions + une classe `neutral` (tweets sans émotion), normalisés entre 0 et 1
+- **Architecture (Keras / TensorFlow)** : Dense(128, relu) → Dropout(0.3) → Dense(64, relu) → Dropout(0.2) → Dense(9, sigmoid)
+- **Entraînement** : optimiseur `adam`, perte `binary_crossentropy`, 12 epochs, split 80% / 20% (stratifié si possible)
+- **Évaluation** : rapport de classification + matrice de confusion (`matrice_confusion_covid.png`) sur l'émotion dominante (`argmax`)
+- Lit `db.csv` (colonnes `tweet_lemmatise`, `emotion`, et scores `anger, anticipation, disgust, fear, joy, sadness, surprise`)
+- **Bibliothèques** : `numpy`, `pandas`, `spacy` (`en_core_web_md`), `scikit-learn`, `tensorflow`, `matplotlib`
+
 ---
 
 ## Installation
@@ -122,4 +145,3 @@ python machine_learning.py    # 4. Entraînement + évaluation
 ```
 
 ## Auteurs : Alizée Arnal, Ambre Chomel, Lina Khairouni, Yessine Jamal, Raphaël Kaufmann.
-
