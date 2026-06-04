@@ -1,93 +1,127 @@
-# ei_tweets
+# Classification d'émotions dans des tweets COVID-19
 
+Pipeline complet de traitement de texte et de machine learning pour classifier les émotions
+de tweets relatifs au COVID-19 parmi : **anger, disgust, fear, happiness, neutral, sadness, surprise**.
 
+---
 
-## Getting started
+## Structure du projet
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Le projet est organisé en plusieurs branches Git, chacune correspondant à une étape du pipeline.
 
 ```
-cd existing_repo
-git remote add origin https://gitlab-research.centralesupelec.fr/alizee.arnal/ei_tweets.git
-git branch -M main
-git push -uf origin main
+indexation                  → Chargement et nettoyage des données
+feature/raphael-filtrage    → Prétraitement, filtrage, lemmatisation
+étiquetage-automatique      → Étiquetage par lexique NRC + émojis
+learning-modele-logistique  → Machine learning (régression logistique)
 ```
 
-## Integrate with your tools
+---
 
-* [Set up project integrations](https://gitlab-research.centralesupelec.fr/alizee.arnal/ei_tweets/-/settings/integrations)
+## Fichiers Python par branche
 
-## Collaborate with your team
+### Branche `indexation` / `feature/raphael-filtrage`
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+#### `indexation.py`
+Chargement du dataset brut et premier nettoyage.
+- Lit `data/covid19_tweets.csv` (~179 000 tweets)
+- Extrait la colonne `text`
+- Supprime les URLs via expression régulière
+- Produit `liste_tweets_propres` (liste Python)
 
-## Test and Deploy
+#### `lemmatisation.py`
+Prétraitement complet des tweets et extraction de features émotionnelles.
+- **Filtrage stop-words** via spaCy (`en_core_web_sm`), avec conservation des négations (`not`, `never`, `no`...)
+- **Répétitions consécutives** : mots répétés ≥ 2 fois d'affilée conservés (accentuation émotionnelle)
+- **Émojis** conservés via la librairie `emoji`
+- **Lemmatisation** avec exception pour les mots à lettres répétées (`WHATTTTT` → conservé tel quel)
+- **Features numériques** calculées sur le texte original :
+  - `pct_majuscules` : % de lettres majuscules
+  - `exclamations` : nombre de `!`
+  - `interrogations` : nombre de `?`
+- Export vers `data/tweets_traites.csv`
 
-Use the built-in continuous integration in GitLab.
+#### `explore_data.py`
+Exploration rapide du dataset : dimensions, colonnes, premières lignes.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+#### `general.py`
+Utilitaires généraux partagés entre les scripts.
 
-***
+---
 
-# Editing this README
+### Branche `étiquetage-automatique`
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+#### `EI2.py`
+Étiquetage des tweets par règles à base de lexique NRC et dictionnaire d'émojis.
+- Charge le lexique NRC (10 catégories d'émotions)
+- Détecte les négations pour inverser le sentiment
+- Associe des émojis à chaque catégorie d'émotion (joie, tristesse, peur, colère...)
+- Produit une étiquette par tweet selon le score dominant
 
-## Suggestions for a good README
+---
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Branche `learning-modele-logistique`
 
-## Name
-Choose a self-explaining name for your project.
+#### `etiquetage_auto.py`
+Étiquetage automatique de tweets via un modèle pré-entraîné HuggingFace.
+- Modèle : `j-hartmann/emotion-english-distilroberta-base`
+- Échantillonne N tweets depuis `data/tweets_traites.csv` (paramétrable, 10 000 par défaut)
+- Traitement par batch (batch_size=64) avec barre de progression
+- Remapping `joy` → `happiness`
+- Export vers `data/tweets_entrainement.csv`
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+#### `machine_learning.py`
+Pipeline principal de classification par régression logistique.
+- **Entraînement** sur `data/tweets_entrainement.csv` (tweets auto-étiquetés)
+- **Test** sur `data/Classeur2.xlsx` (297 tweets étiquetés manuellement)
+- Features : TF-IDF (unigrammes + bigrammes, 5 000 max) + features numériques normalisées
+- `class_weight="balanced"` pour compenser le déséquilibre des classes
+- Affiche le rapport de classification et sauvegarde la matrice de confusion (`matrice_confusion.png`)
+- Sauvegarde le modèle dans `modele_emotions.joblib`
+- Résultats : accuracy ~42-53% selon le jeu de test
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+#### `machine_learning_auto.py`
+Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`bdd_etiquetee_emotions.csv`).
+- Entraînement sur tous les tweets sauf les 50 000 derniers (réservés pour le test)
+- Découpage positionnel (non aléatoire) pour une comparaison reproductible
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+#### `evaluation_ml.py`
+Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre la vérité terrain manuelle.
+- Entraîne le modèle sur les tweets sans annotation manuelle
+- Évalue sur les ~297 tweets annotés à la main
+- Compare : **(A)** ML vs manuel, **(B)** règles auto vs manuel
+
+#### `evaluation_new.py`
+Même protocole qu'`evaluation_ml.py` appliqué à un nouvel étiquetage (`bdd_etiquetee_new.csv`).
+- Récupère les features numériques depuis `bdd_etiquetee_emotions.csv` par alignement
+- Produit : `fig_accuracy_new.png`, `fig_confusions_new.png`, `fig_distribution_new.png`
+- Calcule le kappa de Cohen pour mesurer l'accord entre annotateurs
+
+#### `rapport_figures.py`
+Génère toutes les figures et métriques du rapport final.
+- `fig_accuracy.png` : comparaison accuracy ML / règles auto / baseline
+- `fig_confusions.png` : matrices de confusion côte à côte
+- `fig_distribution.png` : distribution des classes
+- Calcule le kappa de Cohen
+
+---
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+pip install pandas spacy emoji scikit-learn matplotlib joblib transformers torch tqdm openpyxl
+python -m spacy download en_core_web_sm
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## Ordre d'exécution
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+python indexation.py          # 1. Nettoyage des tweets
+python lemmatisation.py       # 2. Filtrage + lemmatisation → tweets_traites.csv
+python etiquetage_auto.py     # 3. Étiquetage automatique  → tweets_entrainement.csv
+python machine_learning.py    # 4. Entraînement + évaluation
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Auteurs
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Projet réalisé dans le cadre d'un cours d'études à CentraleSupélec.
