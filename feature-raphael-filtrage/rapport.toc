@@ -1,0 +1,18 @@
+\babel@toc {french}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {section}{\numberline {2}Prétraitement des tweets}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Données source}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Filtrage des mots courants (liste-vide)}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Features émotionnelles extraites}{2}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}Conservation des émojis}{2}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Lemmatisation}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Principe}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Exception : mots d'emphase émotionnelle}{3}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Format de sortie}{3}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Classification par régression logistique}{3}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Construction des features}{3}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Modèle}{3}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Première expérience : 193 tweets étiquetés manuellement}{4}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Étiquetage automatique : passage à 3\,000 tweets}{4}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}Deuxième expérience : 3\,000 tweets auto-étiquetés}{4}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Conclusion et pistes d'amélioration}{5}{section.5}%

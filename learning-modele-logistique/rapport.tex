@@ -1,0 +1,307 @@
+\documentclass[12pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+
+\geometry{margin=2.5cm}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Classification d'émotions -- Tweets COVID-19}
+\lhead{\leftmark}
+\rfoot{Page \thepage}
+
+\definecolor{codeblue}{rgb}{0.13, 0.29, 0.53}
+\definecolor{codegray}{rgb}{0.95, 0.95, 0.95}
+
+\lstset{
+    backgroundcolor=\color{codegray},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codeblue}\bfseries,
+    breaklines=true,
+    frame=single,
+    language=Python,
+    showstringspaces=false,
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=codeblue,
+    urlcolor=codeblue,
+}
+
+% ============================================================
+\title{
+    \textbf{Classification d'émotions dans des tweets COVID-19} \\[0.5em]
+    \large Prétraitement, lemmatisation et régression logistique
+}
+\author{Kaufmann Raphaël}
+\date{Juin 2026}
+% ============================================================
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ------------------------------------------------------------
+\section{Introduction}
+% ------------------------------------------------------------
+
+Ce document récapitule les étapes réalisées pour construire un pipeline de classification
+d'émotions appliqué à des tweets relatifs au COVID-19.
+L'objectif est d'associer à chaque tweet l'une des sept émotions suivantes :
+\textbf{neutral, disgust, happiness, anger, surprise, sadness, fear}.
+
+Le pipeline se décompose en trois grandes phases :
+\begin{enumerate}
+    \item \textbf{Prétraitement et filtrage} -- nettoyage du texte et extraction de features émotionnelles ;
+    \item \textbf{Lemmatisation} -- réduction des mots à leur forme canonique, avec exceptions pour les mots d'emphase ;
+    \item \textbf{Classification par régression logistique} -- entraînement et évaluation du modèle.
+\end{enumerate}
+
+% ------------------------------------------------------------
+\section{Prétraitement des tweets}
+% ------------------------------------------------------------
+
+\subsection{Données source}
+
+Le dataset initial est \texttt{covid19\_tweets.csv}, contenant environ 179\,000 tweets.
+La colonne d'intérêt est \texttt{text}.
+Un premier nettoyage effectué dans \texttt{indexation.py} supprime les URLs à l'aide
+d'une expression régulière :
+
+\begin{lstlisting}
+motif_lien = r"https?://\S+"
+tweet_nettoye = re.sub(motif_lien, '', tweet)
+\end{lstlisting}
+
+\subsection{Filtrage des mots courants (liste-vide)}
+
+Le filtrage est réalisé dans \texttt{lemmatisation.py} via le modèle spaCy
+\texttt{en\_core\_web\_sm}. Trois règles guident la conservation d'un token :
+
+\begin{enumerate}
+    \item \textbf{Mot utile} : le token n'appartient pas à la liste-vide spaCy (326 stop-words anglais).
+    \item \textbf{Négation} : certains stop-words sont explicitement conservés car porteurs de sens
+          émotionnel (colère, peur, tristesse).
+    \item \textbf{Accentuation par répétition consécutive} : un stop-word répété $\geq 2$ fois
+          d'affilée (ex. \textit{very very}) est conservé pour signaler une intensité émotionnelle.
+\end{enumerate}
+
+Les négations préservées sont :
+
+\begin{center}
+\texttt{not, no, nor, never, nothing, nobody, none, neither, nowhere, n't, cannot, without, most}
+\end{center}
+
+\subsection{Features émotionnelles extraites}
+
+En parallèle du filtrage textuel, trois indicateurs numériques sont calculés
+\textbf{sur le tweet original} (avant mise en minuscules) :
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature} & \textbf{Description} & \textbf{Signal émotionnel} \\
+\midrule
+\texttt{pct\_majuscules} & \% de lettres majuscules & Énervement, intensité \\
+\texttt{exclamations}    & Nombre de \texttt{!}     & Colère, surprise, joie forte \\
+\texttt{interrogations}  & Nombre de \texttt{?}     & Confusion, incrédulité \\
+\bottomrule
+\end{tabular}
+\caption{Features numériques extraites pour la détection d'émotions}
+\end{table}
+
+\subsection{Conservation des émojis}
+
+Les émojis sont détectés via la librairie \texttt{emoji} et systématiquement conservés,
+car ils constituent des marqueurs d'émotion particulièrement explicites
+(\texttt{😡} → colère, \texttt{😢} → tristesse).
+
+% ------------------------------------------------------------
+\section{Lemmatisation}
+% ------------------------------------------------------------
+
+\subsection{Principe}
+
+La lemmatisation réduit chaque mot à sa forme de base :
+\textit{running} $\rightarrow$ \textit{run}, \textit{deaths} $\rightarrow$ \textit{death}.
+Elle est appliquée après le filtrage, via le pipeline spaCy avec NER et parser désactivés
+pour des raisons de performance (\texttt{nlp.pipe(..., disable=["ner", "parser"])}).
+
+\subsection{Exception : mots d'emphase émotionnelle}
+
+Les mots comportant une lettre répétée \textbf{3 fois ou plus consécutivement} ne sont
+\textbf{pas lemmatisés}, car cette répétition de lettres est elle-même un signal d'émotion :
+
+\begin{center}
+\textit{WHATTTTT}, \textit{heyyyy}, \textit{nooooo}
+\end{center}
+
+La détection repose sur l'expression régulière \texttt{(.)\textbackslash1\{2,\}} :
+si un caractère apparaît au moins 3 fois de suite, le mot est conservé tel quel.
+
+\subsection{Format de sortie}
+
+Chaque tweet traité est exporté en chaîne de caractères (mots séparés par des espaces),
+puis sauvegardé dans \texttt{data/tweets\_traites.csv} avec les colonnes suivantes :
+
+\begin{center}
+\texttt{tweet\_lemmatise ;\ pct\_majuscules ;\ exclamations ;\ interrogations}
+\end{center}
+
+% ------------------------------------------------------------
+\section{Classification par régression logistique}
+% ------------------------------------------------------------
+
+\subsection{Construction des features}
+
+Le modèle combine deux familles de features via un \texttt{ColumnTransformer} scikit-learn :
+
+\begin{itemize}
+    \item \textbf{TF-IDF} sur le texte : unigrammes + bigrammes, 5\,000 features max,
+          fréquence minimale de 2 occurrences.
+    \item \textbf{Features numériques} : \texttt{pct\_majuscules}, \texttt{exclamations},
+          \texttt{interrogations}, normalisées par \texttt{StandardScaler}.
+\end{itemize}
+
+\subsection{Modèle}
+
+\begin{lstlisting}
+LogisticRegression(
+    max_iter=1000,
+    class_weight="balanced",  # compense le desequilibre des classes
+    C=1.0,
+    random_state=42,
+)
+\end{lstlisting}
+
+Le paramètre \texttt{class\_weight="balanced"} est crucial : il pondère automatiquement
+les classes sous-représentées pour éviter que \textit{neutral} (majoritaire) écrase les autres.
+
+\subsection{Première expérience : 193 tweets étiquetés manuellement}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Émotion} & \textbf{Exemples} & \textbf{Précision} & \textbf{Rappel} & \textbf{F1} \\
+\midrule
+neutral   & 111 & 0.40 & 0.30 & 0.34 \\
+fear      &  52 & 0.56 & 0.36 & 0.43 \\
+happiness &  24 & 0.00 & 0.00 & 0.00 \\
+sadness   &   3 & 0.00 & 0.00 & 0.00 \\
+anger     &   2 & 0.00 & 0.00 & 0.00 \\
+disgust   &   1 & 0.00 & 0.00 & 0.00 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Accuracy globale}} & \multicolumn{3}{c}{\textbf{28\,\%}} \\
+\bottomrule
+\end{tabular}
+\caption{Résultats avec 193 tweets étiquetés -- dataset trop petit et déséquilibré}
+\end{table}
+
+Les classes avec moins de 5 exemples ne peuvent pas être apprises correctement.
+
+\subsection{Étiquetage automatique : passage à 3\,000 tweets}
+
+Pour pallier le manque de données, un modèle pré-entraîné de HuggingFace a été utilisé
+pour étiqueter automatiquement 3\,000 tweets :
+
+\begin{center}
+\texttt{j-hartmann/emotion-english-distilroberta-base}
+\end{center}
+
+Ce modèle, basé sur DistilRoBERTa, détecte 7 émotions alignées avec nos cibles.
+L'émotion \textit{joy} est remappée vers \textit{happiness}.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Émotion} & \textbf{Tweets étiquetés} \\
+\midrule
+neutral   & 1613 \\
+fear      &  378 \\
+sadness   &  357 \\
+happiness &  298 \\
+anger     &  220 \\
+surprise  &  119 \\
+disgust   &   15 \\
+\midrule
+\textbf{Total} & \textbf{3\,000} \\
+\bottomrule
+\end{tabular}
+\caption{Répartition des émotions après étiquetage automatique}
+\end{table}
+
+\subsection{Deuxième expérience : 3\,000 tweets auto-étiquetés}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Émotion} & \textbf{Support} & \textbf{Précision} & \textbf{Rappel} & \textbf{F1} \\
+\midrule
+neutral   & 323 & 0.76 & 0.52 & 0.62 \\
+anger     &  44 & 0.42 & 0.57 & 0.49 \\
+fear      &  76 & 0.41 & 0.50 & 0.45 \\
+sadness   &  71 & 0.39 & 0.51 & 0.44 \\
+happiness &  59 & 0.30 & 0.46 & 0.36 \\
+surprise  &  24 & 0.14 & 0.25 & 0.18 \\
+disgust   &   3 & 0.00 & 0.00 & 0.00 \\
+\midrule
+\multicolumn{2}{l}{\textbf{Accuracy globale}} & \multicolumn{3}{c}{\textbf{50\,\%}} \\
+\bottomrule
+\end{tabular}
+\caption{Résultats avec 3\,000 tweets -- nette amélioration}
+\end{table}
+
+L'accuracy passe de \textbf{28\,\%} à \textbf{50\,\%}, soit un gain de 22 points.
+Les mots les plus prédictifs par émotion confirment la cohérence du modèle :
+
+\begin{itemize}
+    \item \textbf{anger} : \textit{protest, blame, hate, refuse, stupidity}
+    \item \textbf{fear} : \textit{lockdown, risk, crisis, quarantine, threat}
+    \item \textbf{happiness} : \textit{good, happy, thank, great, love}
+    \item \textbf{sadness} : \textit{death, miss, suffer, depression, bad}
+    \item \textbf{neutral} : \textit{update, mask, case, test, community}
+\end{itemize}
+
+% ------------------------------------------------------------
+\section{Conclusion et pistes d'amélioration}
+% ------------------------------------------------------------
+
+Le pipeline construit permet de classifier automatiquement les émotions de tweets COVID-19
+avec une accuracy de 50\,\% à partir de 3\,000 exemples.
+
+Les principales limites identifiées sont :
+\begin{itemize}
+    \item \textbf{Déséquilibre persistant} : \textit{disgust} reste quasi absent (15 exemples).
+    \item \textbf{Qualité des labels} : l'étiquetage automatique introduit du bruit.
+    \item \textbf{Modèle simple} : la régression logistique ne capture pas les relations
+          syntaxiques complexes.
+\end{itemize}
+
+Pistes pour améliorer les performances :
+\begin{enumerate}
+    \item Augmenter le dataset à 10\,000+ tweets étiquetés.
+    \item Fine-tuner directement un modèle BERT/RoBERTa sur les tweets COVID.
+    \item Valider manuellement un sous-ensemble des labels automatiques.
+\end{enumerate}
+
+\end{document}
