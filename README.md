@@ -9,8 +9,9 @@ Le projet est organisé en **dossiers** à la racine, un par étape du pipeline.
 - `filtrage/` : Chargement, nettoyage, filtrage et lemmatisation des tweets
 - `etiquetage-automatique/` : Étiquetage par règles (lexique NRC + émojis + vocabulaire COVID)
 - `learning-modele-logistique/` : Machine learning (régression logistique) et évaluation
-- `apprentissage/` : Réseau de neurones (classification des émotions)
-- `lina-index/` : Ancienne version du chargement / indexation (conservée pour archive)
+  - `Hugging_Face/` : étiquetage et modèle basés sur un modèle pré-entraîné
+  - `regles_manuelles/` : modèle et évaluation basés sur l'étiquetage par règles
+- `RDN/` : Réseau de neurones (classification des émotions)
 - `data/` : Bases de données (fichiers CSV)
 
 ## Fichiers Python par dossier
@@ -20,7 +21,7 @@ Le projet est organisé en **dossiers** à la racine, un par étape du pipeline.
 
 #### `indexation.py`
 Chargement du dataset brut et premier nettoyage.
-- Lit `data/covid19_tweets.csv` (~179 000 tweets)
+- Lit `covid19_tweets.csv` (~179 000 tweets)
 - Extrait la colonne `text`
 - Supprime les URLs via expression régulière
 - Produit `liste_tweets_propres` (liste Python)
@@ -36,7 +37,7 @@ Prétraitement complet des tweets et extraction de features émotionnelles.
   - `pct_majuscules` : % de lettres majuscules
   - `exclamations` : nombre de `!`
   - `interrogations` : nombre de `?`
-- Export vers `data/tweets_traites.csv`
+- Export vers `tweets_traites.csv`
 - **Bibliothèques** : `spacy` (`en_core_web_sm`), `emoji`, `pandas`, `re`
 
 #### `explore_data.py`
@@ -64,7 +65,7 @@ Version enrichie de l'étiquetage par règles (`EI2.py`), augmentée d'un vocabu
 
 ### Dossier `learning-modele-logistique/`
 
-#### `etiquetage_auto.py`
+#### `Hugging_Face/etiquetage_auto.py`
 Étiquetage automatique de tweets via un modèle pré-entraîné par HuggingFace.
 - Modèle : `j-hartmann/emotion-english-distilroberta-base`
 - Échantillonne N tweets depuis `data/tweets_traites.csv` (paramétrable, 10 000 par défaut)
@@ -72,10 +73,10 @@ Version enrichie de l'étiquetage par règles (`EI2.py`), augmentée d'un vocabu
 - Export vers `data/tweets_entrainement.csv`
 - **Bibliothèques** : `pandas`, `transformers`, `torch`, `tqdm`
 
-#### `machine_learning.py`
+#### `Hugging_Face/machine_learning.py`
 Pipeline principal de classification par régression logistique.
 - **Entraînement** sur `data/tweets_entrainement.csv` (tweets auto-étiquetés)
-- **Test** sur `data/Classeur2.xlsx` (297 tweets étiquetés manuellement)
+- **Test** sur un jeu de 297 tweets étiquetés manuellement
 - Features : TF-IDF (unigrammes + bigrammes, 5 000 max) + features numériques normalisées
 - `class_weight="balanced"` pour compenser le déséquilibre des classes
 - Affiche le rapport de classification et sauvegarde la matrice de confusion (`matrice_confusion.png`)
@@ -83,22 +84,22 @@ Pipeline principal de classification par régression logistique.
 - Résultats : accuracy ~42-53% selon le jeu de test
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`, `openpyxl`
 
-#### `machine_learning_auto.py`
-Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`data/bdd_etiquetee_emotions.csv`).
+#### `regles_manuelles/machine_learning_auto.py`
+Variante de `machine_learning.py` entraînée sur l'étiquetage par règles (`data/bdd_etiquetee_reglesV1.csv`).
 - Entraînement sur tous les tweets sauf les 50 000 derniers (réservés pour le test)
 - Découpage positionnel (non aléatoire) pour une comparaison reproductible
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`
 
-#### `evaluation_ml.py`
-Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre ce qui a été fait manuellement.
+#### `regles_manuelles/evaluation_ml.py`
+Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre l'annotation manuelle.
 - Entraîne le modèle sur les tweets sans annotation manuelle
 - Évalue sur les ~297 tweets annotés à la main
-- Compare le modèle ML et l'étiquetage auto sur les tweets étiquetés manuellement.
+- Compare le modèle ML et l'étiquetage auto sur les tweets étiquetés manuellement
 - **Bibliothèques** : `pandas`, `numpy`, `scikit-learn`
 
-#### `evaluation_new.py`
-Même protocole qu'`evaluation_ml.py` appliqué à un nouvel étiquetage (`data/bdd_etiquetee_new.csv`).
-- Récupère les features numériques depuis `data/bdd_etiquetee_emotions.csv` par alignement
+#### `regles_manuelles/evaluation_new.py`
+Même protocole qu'`evaluation_ml.py` appliqué au nouvel étiquetage (`data/bdd_etiquetee_reglesV2.csv`).
+- Récupère les features numériques depuis `data/bdd_etiquetee_reglesV1.csv` par alignement
 - Produit : `fig_accuracy_new.png`, `fig_confusions_new.png`, `fig_distribution_new.png`
 - Calcule le kappa de Cohen pour mesurer l'accord entre annotateurs
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
@@ -111,7 +112,11 @@ Génère toutes les figures et métriques du rapport final.
 - Calcule le kappa de Cohen
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
 
-### Dossier `apprentissage/`
+#### `ei_tweets/apprentissage.py`
+Vectorisation sac de mots (Bag-of-Words / `CountVectorizer`) de la première colonne de la base.
+- **Bibliothèques** : `pandas`, `scikit-learn`
+
+### Dossier `RDN/`
 
 #### `RDN.py`
 Classification des émotions par réseau de neurones (alternative à la régression logistique).
@@ -123,8 +128,11 @@ Classification des émotions par réseau de neurones (alternative à la régress
 - Lit `db.csv` (colonnes `tweet_lemmatise`, `emotion`, et scores `anger, anticipation, disgust, fear, joy, sadness, surprise`)
 - **Bibliothèques** : `numpy`, `pandas`, `spacy` (`en_core_web_md`), `scikit-learn`, `tensorflow`, `matplotlib`
 
-### Dossier `lina-index/`
-Ancienne version des scripts de chargement et d'indexation (`indexation.py`, `explore_data.py`, `general.py`), conservée à titre d'archive. Remplacée par le dossier `filtrage/`.
+### Dossier `data/`
+Bases de données du projet (CSV) :
+- `bdd_etiquetee_reglesV1.csv` : étiquetage par règles (version 1) + colonne d'annotation manuelle
+- `bdd_etiquetee_reglesV2.csv` : étiquetage par règles (version 2, neutral par défaut)
+- `bdd_score_reglesV1.csv` : scores détaillés par catégorie de l'étiquetage par règles
 
 ---
 
@@ -133,7 +141,7 @@ Ancienne version des scripts de chargement et d'indexation (`indexation.py`, `ex
 ```bash
 pip install pandas spacy emoji scikit-learn matplotlib joblib transformers torch tqdm openpyxl nrclex
 python -m spacy download en_core_web_sm
-python -m spacy download en_core_web_md   # nécessaire pour apprentissage/RDN.py
+python -m spacy download en_core_web_md   # nécessaire pour RDN/RDN.py
 ```
 
 ## Ordre d'exécution
@@ -142,10 +150,10 @@ python -m spacy download en_core_web_md   # nécessaire pour apprentissage/RDN.p
 > depuis la racine du projet (ou adapte les chemins) pour qu'ils trouvent les CSV.
 
 ```bash
-python filtrage/indexation.py                          # 1. Nettoyage des tweets
-python filtrage/lemmatisation.py                       # 2. Filtrage + lemmatisation → data/tweets_traites.csv
-python learning-modele-logistique/etiquetage_auto.py   # 3. Étiquetage automatique  → data/tweets_entrainement.csv
-python learning-modele-logistique/machine_learning.py  # 4. Entraînement + évaluation
+python filtrage/indexation.py                                   # 1. Nettoyage des tweets
+python filtrage/lemmatisation.py                                # 2. Filtrage + lemmatisation → tweets_traites.csv
+python learning-modele-logistique/Hugging_Face/etiquetage_auto.py    # 3. Étiquetage automatique → data/tweets_entrainement.csv
+python learning-modele-logistique/Hugging_Face/machine_learning.py   # 4. Entraînement + évaluation
 ```
 
 ## Auteurs : Alizée Arnal, Ambre Chomel, Lina Khairouni, Yessine Jamal, Raphaël Kaufmann.
