@@ -18,7 +18,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, confusion_matrix,
                              cohen_kappa_score, ConfusionMatrixDisplay)
 
-FICHIER = "bdd_etiquetee_emotions.csv"
+FICHIER = "data/bdd_etiquetee_reglesV1.csv"
 SEP = ";"
 TEXTE = "tweet_lemmatise"
 NUM = ["pct_majuscules", "exclamations", "interrogations"]

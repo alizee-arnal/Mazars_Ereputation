@@ -1,8 +1,8 @@
 """
 Ce code permet de comparer le machine learning avec l'étiquetage automatique par règles,
-mesurés tous les deux par rapport à l'annotation manuelle, sur la base bdd_etiquetee_emotions.csv.
+mesurés tous les deux par rapport à l'annotation manuelle, sur la base bdd_etiquetee_reglesV1.csv.
 
-Le fichier bdd_etiquetee_emotions.csv comporte les colonnes suivantes :
+Le fichier bdd_etiquetee_reglesV1.csv comporte les colonnes suivantes :
   - 'tweet_lemmatise' : texte à vectoriser
   - colonne 'emotion' : étiquetage automatique 
   - colonne 'Emotion' : annotation manuelle
@@ -28,7 +28,7 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 
 # 1 : Configuration.
 
-FICHIER_DONNEES = "data/bdd_etiquetee_emotions.csv"
+FICHIER_DONNEES = "data/bdd_etiquetee_reglesV1.csv"
 SEPARATEUR = ";"
 
 COLONNE_TEXTE = "tweet_lemmatise"

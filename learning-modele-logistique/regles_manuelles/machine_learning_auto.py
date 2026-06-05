@@ -1,5 +1,5 @@
 """
-Ce code est similaire à machine_learning.py, mais il utilise la base bdd_etiquetee_emotions.csv, 
+Ce code est similaire à machine_learning.py, mais il utilise la base bdd_etiquetee_reglesV1.csv, 
 qui contient des tweets étiquetés automatiquement par règles (colonne 'emotion') et annotés manuellement (colonne 'Emotion').
 On a accèss aux mêmes features que dans machine_learning.py, à savoir :
 - le texte du tweet, vectorisé en TF-IDF
@@ -24,7 +24,7 @@ from sklearn.metrics import classification_report, confusion_matrix, ConfusionMa
 # 1 : Configuration des chemins, noms de colonnes...
 
 # Base étiquetée automatiquement par règles NRC :
-FICHIER_DONNEES = "data/bdd_etiquetee_emotions.csv"
+FICHIER_DONNEES = "data/bdd_etiquetee_reglesV1.csv"
 SEPARATEUR = ";"  
 
 COLONNE_TEXTE = "tweet_lemmatise"

@@ -1,10 +1,10 @@
 """
-Le code permet l'évaluation sur le nouvel étiquetage (bdd_etiquetee_new.csv), avec 
+Le code permet l'évaluation sur le nouvel étiquetage (bdd_etiquetee_reglesV2.csv), avec 
 les mêmes indicateurs que evaluation_ml.py et rapport_figures.py.
 
-En ce qui concerne la base bdd_etiquetee_new.csv, elle ne contient que :
+En ce qui concerne la base bdd_etiquetee_reglesV2.csv, elle ne contient que :
   [tweet_lemmatise, emotion (nouvelles règles), Emotions_manual]
-Les 3 features numériques sont récupérées depuis bdd_etiquetee_emotions.csv
+Les 3 features numériques sont récupérées depuis bdd_etiquetee_reglesV1.csv
 
 les indicateurs produits sont :
   - accuracy & kappa de Cohen : ML vs manuel et règles vs manuel
@@ -25,8 +25,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report,
                              cohen_kappa_score, ConfusionMatrixDisplay)
 
-FICHIER_NEW = "data/bdd_etiquetee_new.csv"        # nouvel étiquetage et annotation manuelle
-FICHIER_NUM = "data/bdd_etiquetee_emotions.csv"   # source des 3 features numériques
+FICHIER_NEW = "data/bdd_etiquetee_reglesV2.csv"   # nouvel étiquetage et annotation manuelle
+FICHIER_NUM = "data/bdd_etiquetee_reglesV1.csv"   # source des 3 features numériques
 SEP = ";"
 TEXTE = "tweet_lemmatise"
 NUM = ["pct_majuscules", "exclamations", "interrogations"]
