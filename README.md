@@ -2,24 +2,21 @@
 
 Ce fichier permet de comprendre l'avancée de notre projet et comment utiliser les différents fichiers de code, notamment avec les bases de données. Le but principal du projet était de classifier les émotions de tweets relatifs au COVID-19 parmi : **anger, disgust, fear, happiness, neutral, sadness, surprise**.
 
-## Structure du projet : 
+## Structure du projet :
 
-Le projet est organisé en plusieurs branches Git, chacune correspondant à une étape du pipeline.
+Le projet est organisé en **dossiers** à la racine, un par étape du pipeline.
 
--indexation : Chargement et nettoyage des données
+- `filtrage/` : Chargement, nettoyage, filtrage et lemmatisation des tweets
+- `etiquetage-automatique/` : Étiquetage par règles (lexique NRC + émojis + vocabulaire COVID)
+- `learning-modele-logistique/` : Machine learning (régression logistique) et évaluation
+- `apprentissage/` : Réseau de neurones (classification des émotions)
+- `lina-index/` : Ancienne version du chargement / indexation (conservée pour archive)
+- `data/` : Bases de données (fichiers CSV)
 
--feature/raphael-filtrage : Prétraitement, filtrage, lemmatisation
+## Fichiers Python par dossier
 
--étiquetage-automatique : Étiquetage par lexique NRC + émojis
-
--learning-modele-logistique : Machine learning (régression logistique)
-
--apprentissage : Réseau de neurones (classification des émotions)
-
-## Fichiers Python par branche
-
-### Branche `indexation` / `feature/raphael-filtrage`
-(la branche `feature/raphael-filtrage` a été merged)
+### Dossier `filtrage/`
+(regroupe le chargement, le nettoyage et la lemmatisation des tweets)
 
 #### `indexation.py`
 Chargement du dataset brut et premier nettoyage.
@@ -46,7 +43,7 @@ Prétraitement complet des tweets et extraction de features émotionnelles.
 Exploration rapide du dataset : dimensions, colonnes, premières lignes.
 - **Bibliothèques** : `pandas`
 
-### Branche `étiquetage-automatique`
+### Dossier `etiquetage-automatique/`
 
 #### `EI2.py`
 Étiquetage des tweets par règles à base de lexique NRC et dictionnaire d'émojis.
@@ -65,7 +62,7 @@ Version enrichie de l'étiquetage par règles (`EI2.py`), augmentée d'un vocabu
 - Lit `tweets_traites.csv`, produit `bdd_etiquetee.csv` (une colonne par catégorie NRC + `emotion` + `sentiment`)
 - **Bibliothèques** : `pandas`, `spacy` (`en_core_web_sm`), `nrclex`, `re`, `collections`, `json`
 
-### Branche `learning-modele-logistique`
+### Dossier `learning-modele-logistique/`
 
 #### `etiquetage_auto.py`
 Étiquetage automatique de tweets via un modèle pré-entraîné par HuggingFace.
@@ -87,7 +84,7 @@ Pipeline principal de classification par régression logistique.
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`, `openpyxl`
 
 #### `machine_learning_auto.py`
-Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`bdd_etiquetee_emotions.csv`).
+Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`data/bdd_etiquetee_emotions.csv`).
 - Entraînement sur tous les tweets sauf les 50 000 derniers (réservés pour le test)
 - Découpage positionnel (non aléatoire) pour une comparaison reproductible
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`
@@ -100,8 +97,8 @@ Variante de `machine_learning.py` entraînée sur l'étiquetage NRC (`bdd_etique
 - **Bibliothèques** : `pandas`, `numpy`, `scikit-learn`
 
 #### `evaluation_new.py`
-Même protocole qu'`evaluation_ml.py` appliqué à un nouvel étiquetage (`bdd_etiquetee_new.csv`).
-- Récupère les features numériques depuis `bdd_etiquetee_emotions.csv` par alignement
+Même protocole qu'`evaluation_ml.py` appliqué à un nouvel étiquetage (`data/bdd_etiquetee_new.csv`).
+- Récupère les features numériques depuis `data/bdd_etiquetee_emotions.csv` par alignement
 - Produit : `fig_accuracy_new.png`, `fig_confusions_new.png`, `fig_distribution_new.png`
 - Calcule le kappa de Cohen pour mesurer l'accord entre annotateurs
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
@@ -114,7 +111,7 @@ Génère toutes les figures et métriques du rapport final.
 - Calcule le kappa de Cohen
 - **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
 
-### Branche `apprentissage`
+### Dossier `apprentissage/`
 
 #### `RDN.py`
 Classification des émotions par réseau de neurones (alternative à la régression logistique).
@@ -126,6 +123,9 @@ Classification des émotions par réseau de neurones (alternative à la régress
 - Lit `db.csv` (colonnes `tweet_lemmatise`, `emotion`, et scores `anger, anticipation, disgust, fear, joy, sadness, surprise`)
 - **Bibliothèques** : `numpy`, `pandas`, `spacy` (`en_core_web_md`), `scikit-learn`, `tensorflow`, `matplotlib`
 
+### Dossier `lina-index/`
+Ancienne version des scripts de chargement et d'indexation (`indexation.py`, `explore_data.py`, `general.py`), conservée à titre d'archive. Remplacée par le dossier `filtrage/`.
+
 ---
 
 ## Installation
@@ -133,15 +133,19 @@ Classification des émotions par réseau de neurones (alternative à la régress
 ```bash
 pip install pandas spacy emoji scikit-learn matplotlib joblib transformers torch tqdm openpyxl nrclex
 python -m spacy download en_core_web_sm
+python -m spacy download en_core_web_md   # nécessaire pour apprentissage/RDN.py
 ```
 
 ## Ordre d'exécution
 
+> Remarque : les scripts utilisent des chemins relatifs vers `data/`. Exécute-les
+> depuis la racine du projet (ou adapte les chemins) pour qu'ils trouvent les CSV.
+
 ```bash
-python indexation.py          # 1. Nettoyage des tweets
-python lemmatisation.py       # 2. Filtrage + lemmatisation → tweets_traites.csv
-python etiquetage_auto.py     # 3. Étiquetage automatique  → tweets_entrainement.csv
-python machine_learning.py    # 4. Entraînement + évaluation
+python filtrage/indexation.py                          # 1. Nettoyage des tweets
+python filtrage/lemmatisation.py                       # 2. Filtrage + lemmatisation → data/tweets_traites.csv
+python learning-modele-logistique/etiquetage_auto.py   # 3. Étiquetage automatique  → data/tweets_entrainement.csv
+python learning-modele-logistique/machine_learning.py  # 4. Entraînement + évaluation
 ```
 
 ## Auteurs : Alizée Arnal, Ambre Chomel, Lina Khairouni, Yessine Jamal, Raphaël Kaufmann.
