@@ -1,138 +1,138 @@
-# Classification d'émotions dans des tweets COVID-19
+# Emotion classification of COVID-19 tweets
 
-Ce fichier permet de comprendre l'avancée de notre projet et comment utiliser les différents fichiers de code, notamment avec les bases de données. Le but principal du projet était de classifier les émotions de tweets relatifs au COVID-19 parmi : **anger, disgust, fear, happiness, neutral, sadness, surprise**.
+This file explains the progress of our project and how to use the different code files, in particular with the databases. The main goal of the project was to classify the emotions of COVID-19 tweets among: **anger, disgust, fear, happiness, neutral, sadness, surprise**.
 
-## Structure du projet :
+## Project structure:
 
-Le projet est organisé en **dossiers** à la racine, un par étape du pipeline.
+The project is organized into **folders** at the root, one per step of the pipeline.
 
-- `filtrage/` : Chargement, nettoyage, filtrage et lemmatisation des tweets
-- `etiquetage-automatique/` : Étiquetage par règles (lexique NRC + émojis + vocabulaire COVID)
-- `learning-modele-logistique/` : Machine learning (régression logistique) et évaluation
-  - `Hugging_Face/` : étiquetage et modèle basés sur un modèle pré-entraîné
-  - `regles_manuelles/` : modèle et évaluation basés sur l'étiquetage par règles
-- `RDN/` : Réseau de neurones (classification des émotions)
-- `data/` : Bases de données (fichiers CSV)
+- `filtrage/` (filtering): loading, cleaning, filtering and lemmatization of the tweets
+- `etiquetage-automatique/` (automatic labeling): rule-based labeling (NRC lexicon + emojis + COVID vocabulary)
+- `learning-modele-logistique/` (logistic model learning): machine learning (logistic regression) and evaluation
+  - `Hugging_Face/`: labeling and model based on a pre-trained model
+  - `regles_manuelles/` (manual rules): model and evaluation based on the rule-based labeling
+- `RDN/` (neural network): neural network (emotion classification)
+- `data/`: databases (CSV files)
 
-## Fichiers Python par dossier
+## Python files by folder
 
-### Dossier `filtrage/`
-(regroupe le chargement, le nettoyage et la lemmatisation des tweets)
+### `filtrage/` folder
+(groups the loading, cleaning and lemmatization of the tweets)
 
 #### `indexation.py`
-Chargement du dataset brut et premier nettoyage.
-- Lit `covid19_tweets.csv` (~179 000 tweets)
-- Extrait la colonne `text`
-- Supprime les URLs via expression régulière
-- Produit `liste_tweets_propres` (liste Python)
-- **Bibliothèques** : `pandas`, `re`
+Loading of the raw dataset and first cleaning.
+- Reads `covid19_tweets.csv` (~179,000 tweets)
+- Extracts the `text` column
+- Removes URLs with a regular expression
+- Produces `liste_tweets_propres` (Python list)
+- **Libraries**: `pandas`, `re`
 
 #### `lemmatisation.py`
-Prétraitement complet des tweets et extraction de features émotionnelles.
-- **Filtrage stop-words** via spaCy (`en_core_web_sm`), avec conservation des négations (`not`, `never`, `no`...)
-- **Répétitions consécutives** : les mots répétés plus de 2 fois d'affilée conservés 
-- **Émojis** conservés via la librairie `emoji`
-- **Lemmatisation** avec exception pour les mots à lettres répétées 
-- **Features numériques** calculées sur le texte original :
-  - `pct_majuscules` : % de lettres majuscules
-  - `exclamations` : nombre de `!`
-  - `interrogations` : nombre de `?`
-- Export vers `tweets_traites.csv`
-- **Bibliothèques** : `spacy` (`en_core_web_sm`), `emoji`, `pandas`, `re`
+Full preprocessing of the tweets and extraction of emotional features.
+- **Stop-word filtering** with spaCy (`en_core_web_sm`), keeping negations (`not`, `never`, `no`...)
+- **Consecutive repetitions**: words repeated more than twice in a row are kept
+- **Emojis** kept with the `emoji` library
+- **Lemmatization** with an exception for words with repeated letters
+- **Numeric features** computed on the original text:
+  - `pct_majuscules`: % of uppercase letters
+  - `exclamations`: number of `!`
+  - `interrogations`: number of `?`
+- Export to `tweets_traites.csv`
+- **Libraries**: `spacy` (`en_core_web_sm`), `emoji`, `pandas`, `re`
 
 #### `explore_data.py`
-Exploration rapide du dataset : dimensions, colonnes, premières lignes.
-- **Bibliothèques** : `pandas`
+Quick exploration of the dataset: dimensions, columns, first rows.
+- **Libraries**: `pandas`
 
-### Dossier `etiquetage-automatique/`
+### `etiquetage-automatique/` folder
 
 #### `EI2.py`
-Étiquetage des tweets par règles à base de lexique NRC et dictionnaire d'émojis.
-- Charge le lexique NRC (10 catégories d'émotions)
-- Détecte les négations pour inverser le sentiment
-- Associe des émojis à chaque catégorie d'émotion (joie, tristesse, peur, colère...)
-- Produit une étiquette par tweet selon le score dominant
-- **Bibliothèques** : `pandas`, `nrclex`, `re`, `collections`
+Rule-based labeling of the tweets using the NRC lexicon and an emoji dictionary.
+- Loads the NRC lexicon (10 emotion categories)
+- Detects negations to invert the sentiment
+- Associates emojis with each emotion category (joy, sadness, fear, anger...)
+- Produces one label per tweet according to the dominant score
+- **Libraries**: `pandas`, `nrclex`, `re`, `collections`
 
 #### `etiquetage_automatique.py`
-Version enrichie de l'étiquetage par règles (`EI2.py`), augmentée d'un vocabulaire spécifique au contexte COVID.
-- Lexique NRC (émotions + valence positive/negative)
-- **Vocabulaire COVID** (catégories `neutral`, `fear`, `joy`) lemmatisé avec spaCy (`en_core_web_sm`) pour correspondre au texte lemmatisé
-- Dictionnaire d'émojis associés à chaque émotion (poids ×2)
-- Gestion des négations (inversion de la valence) et poids d'intensité (MAJUSCULES, lettres répétées, `!`)
-- Lit `tweets_traites.csv`, produit `bdd_etiquetee.csv` (une colonne par catégorie NRC + `emotion` + `sentiment`)
-- **Bibliothèques** : `pandas`, `spacy` (`en_core_web_sm`), `nrclex`, `re`, `collections`, `json`
+Enriched version of the rule-based labeling (`EI2.py`), extended with a vocabulary specific to the COVID context.
+- NRC lexicon (emotions + positive/negative valence)
+- **COVID vocabulary** (categories `neutral`, `fear`, `joy`) lemmatized with spaCy (`en_core_web_sm`) to match the lemmatized text
+- Dictionary of emojis associated with each emotion (weight ×2)
+- Negation handling (valence inversion) and intensity weights (CAPITAL LETTERS, repeated letters, `!`)
+- Reads `tweets_traites.csv`, produces `bdd_etiquetee.csv` (one column per NRC category + `emotion` + `sentiment`)
+- **Libraries**: `pandas`, `spacy` (`en_core_web_sm`), `nrclex`, `re`, `collections`, `json`
 
-### Dossier `learning-modele-logistique/`
+### `learning-modele-logistique/` folder
 
 #### `Hugging_Face/etiquetage_auto.py`
-Étiquetage automatique de tweets via un modèle pré-entraîné par HuggingFace.
-- Modèle : `j-hartmann/emotion-english-distilroberta-base`
-- Échantillonne N tweets depuis `data/tweets_traites.csv` (paramétrable, 10 000 par défaut)
+Automatic labeling of tweets with a pre-trained HuggingFace model.
+- Model: `j-hartmann/emotion-english-distilroberta-base`
+- Samples N tweets from `data/tweets_traites.csv` (configurable, 10,000 by default)
 - Remapping `joy` → `happiness`
-- Export vers `data/tweets_entrainement.csv`
-- **Bibliothèques** : `pandas`, `transformers`, `torch`, `tqdm`
+- Export to `data/tweets_entrainement.csv`
+- **Libraries**: `pandas`, `transformers`, `torch`, `tqdm`
 
 #### `Hugging_Face/machine_learning.py`
-Pipeline principal de classification par régression logistique.
-- **Entraînement** sur `data/tweets_entrainement.csv` (tweets auto-étiquetés)
-- **Test** sur un jeu de 297 tweets étiquetés manuellement
-- Features : TF-IDF (unigrammes + bigrammes, 5 000 max) + features numériques normalisées
-- `class_weight="balanced"` pour compenser le déséquilibre des classes
-- Affiche le rapport de classification et sauvegarde la matrice de confusion (`matrice_confusion.png`)
-- Sauvegarde le modèle dans `modele_emotions.joblib`
-- Résultats : accuracy ~42-53% selon le jeu de test
-- **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`, `openpyxl`
+Main classification pipeline using logistic regression.
+- **Training** on `data/tweets_entrainement.csv` (auto-labeled tweets)
+- **Test** on a set of 297 manually labeled tweets
+- Features: TF-IDF (unigrams + bigrams, 5,000 max) + normalized numeric features
+- `class_weight="balanced"` to compensate for the class imbalance
+- Displays the classification report and saves the confusion matrix (`matrice_confusion.png`)
+- Saves the model to `modele_emotions.joblib`
+- Results: accuracy ~42-53% depending on the test set
+- **Libraries**: `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`, `openpyxl`
 
 #### `regles_manuelles/machine_learning_auto.py`
-Variante de `machine_learning.py` entraînée sur l'étiquetage par règles (`data/bdd_etiquetee_reglesV1.csv`).
-- Entraînement sur tous les tweets sauf les 50 000 derniers (réservés pour le test)
-- Découpage positionnel (non aléatoire) pour une comparaison reproductible
-- **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`
+Variant of `machine_learning.py` trained on the rule-based labeling (`data/bdd_etiquetee_reglesV1.csv`).
+- Trains on all tweets except the last 50,000 (kept for testing)
+- Positional (non-random) split for a reproducible comparison
+- **Libraries**: `pandas`, `numpy`, `matplotlib`, `scikit-learn`, `joblib`
 
 #### `regles_manuelles/evaluation_ml.py`
-Évaluation comparative : ML vs étiquetage automatique par règles, mesurés contre l'annotation manuelle.
-- Entraîne le modèle sur les tweets sans annotation manuelle
-- Évalue sur les ~297 tweets annotés à la main
-- Compare le modèle ML et l'étiquetage auto sur les tweets étiquetés manuellement
-- **Bibliothèques** : `pandas`, `numpy`, `scikit-learn`
+Comparative evaluation: ML vs rule-based automatic labeling, both measured against the manual annotation.
+- Trains the model on the tweets without manual annotation
+- Evaluates on the ~297 hand-annotated tweets
+- Compares the ML model and the automatic labeling on the manually labeled tweets
+- **Libraries**: `pandas`, `numpy`, `scikit-learn`
 
 #### `regles_manuelles/evaluation_new.py`
-Même protocole qu'`evaluation_ml.py` appliqué au nouvel étiquetage (`data/bdd_etiquetee_reglesV2.csv`).
-- Récupère les features numériques depuis `data/bdd_etiquetee_reglesV1.csv` par alignement
-- Produit : `fig_accuracy_new.png`, `fig_confusions_new.png`, `fig_distribution_new.png`
-- Calcule le kappa de Cohen pour mesurer l'accord entre annotateurs
-- **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
+Same protocol as `evaluation_ml.py`, applied to the new labeling (`data/bdd_etiquetee_reglesV2.csv`).
+- Retrieves the numeric features from `data/bdd_etiquetee_reglesV1.csv` by alignment
+- Produces: `fig_accuracy_new.png`, `fig_confusions_new.png`, `fig_distribution_new.png`
+- Computes Cohen's kappa to measure the agreement between annotators
+- **Libraries**: `pandas`, `numpy`, `matplotlib`, `scikit-learn`
 
 #### `rapport_figures.py`
-Génère toutes les figures et métriques du rapport final.
-- `fig_accuracy.png` : comparaison accuracy ML / règles auto / baseline
-- `fig_confusions.png` : matrices de confusion côte à côte
-- `fig_distribution.png` : distribution des classes
-- Calcule le kappa de Cohen
-- **Bibliothèques** : `pandas`, `numpy`, `matplotlib`, `scikit-learn`
+Generates all the figures and metrics of the final report.
+- `fig_accuracy.png`: accuracy comparison ML / automatic rules / baseline
+- `fig_confusions.png`: side-by-side confusion matrices
+- `fig_distribution.png`: class distribution
+- Computes Cohen's kappa
+- **Libraries**: `pandas`, `numpy`, `matplotlib`, `scikit-learn`
 
 #### `ei_tweets/apprentissage.py`
-Vectorisation sac de mots (Bag-of-Words / `CountVectorizer`) de la première colonne de la base.
-- **Bibliothèques** : `pandas`, `scikit-learn`
+Bag-of-words vectorization (`CountVectorizer`) of the first column of the database.
+- **Libraries**: `pandas`, `scikit-learn`
 
-### Dossier `RDN/`
+### `RDN/` folder
 
 #### `RDN.py`
-Classification des émotions par réseau de neurones (alternative à la régression logistique).
-- **Représentation** : embeddings spaCy `en_core_web_md` (vecteurs de dimension 300)
-- **Cibles** : scores des 7 émotions + une classe `neutral` (tweets sans émotion), normalisés entre 0 et 1
-- **Architecture (Keras / TensorFlow)** : Dense(128, relu) → Dropout(0.3) → Dense(64, relu) → Dropout(0.2) → Dense(9, sigmoid)
-- **Entraînement** : optimiseur `adam`, perte `binary_crossentropy`, 12 epochs, split 80% / 20% (stratifié si possible)
-- **Évaluation** : rapport de classification + matrice de confusion (`matrice_confusion_covid.png`) sur l'émotion dominante (`argmax`)
-- Lit `db.csv` (colonnes `tweet_lemmatise`, `emotion`, et scores `anger, anticipation, disgust, fear, joy, sadness, surprise`)
-- **Bibliothèques** : `numpy`, `pandas`, `spacy` (`en_core_web_md`), `scikit-learn`, `tensorflow`, `matplotlib`
+Emotion classification with a neural network (alternative to logistic regression).
+- **Representation**: spaCy `en_core_web_md` embeddings (300-dimensional vectors)
+- **Targets**: scores of the 7 emotions + a `neutral` class (tweets without emotion), normalized between 0 and 1
+- **Architecture (Keras / TensorFlow)**: Dense(128, relu) → Dropout(0.3) → Dense(64, relu) → Dropout(0.2) → Dense(9, sigmoid)
+- **Training**: `adam` optimizer, `binary_crossentropy` loss, 12 epochs, 80% / 20% split (stratified when possible)
+- **Evaluation**: classification report + confusion matrix (`matrice_confusion_covid.png`) on the dominant emotion (`argmax`)
+- Reads `db.csv` (columns `tweet_lemmatise`, `emotion`, and scores `anger, anticipation, disgust, fear, joy, sadness, surprise`)
+- **Libraries**: `numpy`, `pandas`, `spacy` (`en_core_web_md`), `scikit-learn`, `tensorflow`, `matplotlib`
 
-### Dossier `data/`
-Bases de données du projet (CSV) :
-- `bdd_etiquetee_reglesV1.csv` : étiquetage par règles (version 1) + colonne d'annotation manuelle
-- `bdd_etiquetee_reglesV2.csv` : étiquetage par règles (version 2, neutral par défaut)
-- `bdd_score_reglesV1.csv` : scores détaillés par catégorie de l'étiquetage par règles
+### `data/` folder
+Project databases (CSV):
+- `bdd_etiquetee_reglesV1.csv`: rule-based labeling (version 1) + manual annotation column
+- `bdd_etiquetee_reglesV2.csv`: rule-based labeling (version 2, neutral by default)
+- `bdd_score_reglesV1.csv`: detailed per-category scores of the rule-based labeling
 
 ---
 
@@ -141,19 +141,19 @@ Bases de données du projet (CSV) :
 ```bash
 pip install pandas spacy emoji scikit-learn matplotlib joblib transformers torch tqdm openpyxl nrclex
 python -m spacy download en_core_web_sm
-python -m spacy download en_core_web_md   # nécessaire pour RDN/RDN.py
+python -m spacy download en_core_web_md   # required for RDN/RDN.py
 ```
 
-## Ordre d'exécution
+## Execution order
 
-> Remarque : les scripts utilisent des chemins relatifs vers `data/`. Exécute-les
-> depuis la racine du projet (ou adapte les chemins) pour qu'ils trouvent les CSV.
+> Note: the scripts use relative paths to `data/`. Run them
+> from the project root (or adapt the paths) so that they find the CSV files.
 
 ```bash
-python filtrage/indexation.py                                   # 1. Nettoyage des tweets
-python filtrage/lemmatisation.py                                # 2. Filtrage + lemmatisation → tweets_traites.csv
-python learning-modele-logistique/Hugging_Face/etiquetage_auto.py    # 3. Étiquetage automatique → data/tweets_entrainement.csv
-python learning-modele-logistique/Hugging_Face/machine_learning.py   # 4. Entraînement + évaluation
+python filtrage/indexation.py                                   # 1. Tweet cleaning
+python filtrage/lemmatisation.py                                # 2. Filtering + lemmatization → tweets_traites.csv
+python learning-modele-logistique/Hugging_Face/etiquetage_auto.py    # 3. Automatic labeling → data/tweets_entrainement.csv
+python learning-modele-logistique/Hugging_Face/machine_learning.py   # 4. Training + evaluation
 ```
 
-## Auteurs : Alizée Arnal, Ambre Chomel, Lina Khairouni, Yessine Jamal, Raphaël Kaufmann.
+## Authors: Alizée Arnal, Ambre Chomel, Lina Khairouni, Yessine Jamal, Raphaël Kaufmann.

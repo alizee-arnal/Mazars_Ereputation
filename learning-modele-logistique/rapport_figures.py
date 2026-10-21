@@ -1,9 +1,9 @@
 """
-Ce code permet de génèrer les figures et métriques du rapport :
-  - fig_accuracy.png        : comparaison des accuracy entre le ML, les règles auto et la baseline
-  - fig_confusions.png      : matrices de confusion du ML et des règles 
-  - fig_distribution.png    : distribution des classes (base auto vs annotation manuelle)
-Il donne également toutes les métriques chiffrées, dont le kappa de Cohen.
+This code generates the figures and metrics of the report:
+  - fig_accuracy.png        : accuracy comparison between the ML, the automatic rules and the baseline
+  - fig_confusions.png      : confusion matrices of the ML and of the rules
+  - fig_distribution.png    : class distribution (automatic database vs manual annotation)
+It also gives all the numeric metrics, including Cohen's kappa.
 """
 
 import pandas as pd
@@ -26,7 +26,7 @@ AUTO = "emotion"
 MANUEL = "Emotion"
 RS = 42
 
-# Chargement 
+# Loading
 df = pd.read_csv(FICHIER, sep=SEP, encoding="utf-8-sig", low_memory=False)
 df = df[[TEXTE] + NUM + [AUTO, MANUEL]]
 df[TEXTE] = df[TEXTE].astype(str)
@@ -35,7 +35,7 @@ masque_ref = df[MANUEL].notna()
 df_ref = df[masque_ref].copy()
 df_train = df[~masque_ref].dropna(subset=[AUTO]).copy()
 
-# Entraînement ML
+# ML training
 pipe = Pipeline([
     ("prep", ColumnTransformer([
         ("texte", TfidfVectorizer(ngram_range=(1, 2), min_df=2, max_features=5000), TEXTE),
@@ -45,13 +45,13 @@ pipe = Pipeline([
 ])
 pipe.fit(df_train[[TEXTE] + NUM], df_train[AUTO])
 
-# Prédictions sur le jeu annoté 
+# Predictions on the annotated set
 y_vrai = df_ref[MANUEL]
 y_ml = pipe.predict(df_ref[[TEXTE] + NUM])
 y_auto = df_ref[AUTO]
 labels = sorted(set(y_vrai) | set(y_ml) | set(y_auto))
 
-# Métriques 
+# Metrics
 acc_ml = accuracy_score(y_vrai, y_ml)
 acc_auto = accuracy_score(y_vrai, y_auto)
 accord = accuracy_score(y_auto, y_ml)
@@ -71,7 +71,7 @@ print(f"Kappa auto vs manuel    : {kappa_auto:.3f}")
 print(f"Accord ML <-> auto      : {accord:.3f}")
 
 
-# Génération de la figure 1 : barres d'accuracy
+# Generating figure 1: accuracy bars
 
 fig, ax = plt.subplots(figsize=(6, 4.2))
 noms = [f"Baseline\n(toujours {classe_maj})", "Règles auto\nvs manuel", "ML\nvs manuel"]
@@ -87,7 +87,7 @@ plt.tight_layout()
 plt.savefig("fig_accuracy.png", dpi=130)
 plt.close()
 
-# Génération de la figure 2 : matrices de confusion côte à côte
+# Generating figure 2: side-by-side confusion matrices
 
 fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
 for ax, y_pred, titre in [(axes[0], y_ml, "ML vs manuel"),
@@ -102,7 +102,7 @@ plt.savefig("fig_confusions.png", dpi=130)
 plt.close()
 
 
-# Génération de la figure 3 : distribution des classes
+# Generating figure 3: class distribution
 
 fig, ax = plt.subplots(figsize=(8, 4.2))
 ordre = sorted(set(df[AUTO].dropna()) | set(y_vrai))

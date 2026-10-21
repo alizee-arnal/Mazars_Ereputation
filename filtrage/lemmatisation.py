@@ -1,10 +1,10 @@
 ''' 
-Ce code permet de nettoyer la base de données, en procédant en plusieurs étapes :
-- calcul du pourcentage de lettres majuscules 
-- comptage de la ponctuation émotionnelle 
-- filtrage des mots courants tout en conservant les marqueurs d'émotion importants (négation, répétition de mots, émojis)
-- lemmatisation (en conservant les mots avec lettres répétées)
-Il renvoie finalement un fichier CSV.
+This code cleans the database in several steps:
+- computing the percentage of uppercase letters 
+- counting emotional punctuation 
+- filtering common words while keeping the important emotion markers (negation, repeated words, emojis)
+- lemmatization (keeping the words with repeated letters)
+It finally outputs a CSV file.
 '''
 import re
 import spacy
@@ -12,23 +12,23 @@ import emoji
 import pandas as pd
 from indexation import liste_tweets_propres
 
-# Charger le modèle anglais (tweets covid19 en anglais)
+# Load the English model (COVID-19 tweets are in English)
 nlp = spacy.load("en_core_web_sm")
 
 liste_vide = nlp.Defaults.stop_words
 
-# Mots de négation à toujours conserver (marqueurs de colère, peur, tristesse...)
+# Negation words to always keep (markers of anger, fear, sadness...)
 NEGATIONS = {
     "not", "no", "nor", "never", "nothing", "nobody", "none",
     "neither", "nowhere", "n't", "cannot", "without", "most"
 }
 
-# On retire les négations de la liste-vide
+# Remove the negations from the stop-word list
 liste_vide = liste_vide - NEGATIONS
 
 
 def positions_repetition_consecutive(tokens, seuil=2):
-    """Retourne les indices des tokens faisant partie d'une répétition consécutive  supérieur à 2"""
+    """Returns the indices of the tokens that are part of a consecutive repetition greater than 2"""
     positions = set()
     i = 0
     while i < len(tokens):
@@ -42,7 +42,7 @@ def positions_repetition_consecutive(tokens, seuil=2):
 
 
 def calculer_pourcentage_majuscules(tweets):
-    """Retourne le pourcentage de lettres majuscules par tweet (sur le texte original)."""
+    """Returns the percentage of uppercase letters per tweet (on the original text)."""
     pourcentages = []
     for tweet in tweets:
         lettres = [c for c in tweet if c.isalpha()]
@@ -55,7 +55,7 @@ def calculer_pourcentage_majuscules(tweets):
 
 
 def compter_ponctuation_emotion(tweets):
-    """Retourne le nombre de '!' et '?' par tweet (sur le texte original)."""
+    """Returns the number of '!' and '?' per tweet (on the original text)."""
     resultats = []
     for tweet in tweets:
         nb_exclamation = tweet.count("!")
@@ -69,16 +69,16 @@ def compter_ponctuation_emotion(tweets):
 
 def filtrer_mots_courants(tweets, seuil_repetition=2):
     """
-    Retire les mots courants sauf :
-    - les négations
-    - les mots répétés 
-    - les émojis 
-    - Les mots avec lettres répétées sont conservés tels quels.
+    Removes common words except:
+    - negations
+    - repeated words 
+    - emojis 
+    - Words with repeated letters are kept as they are.
     """
     tweets_filtres = []
 
     for tweet in tweets:
-        # make_doc : tokenisation seule, sans pipeline ML (beaucoup plus rapide)
+        # make_doc: tokenization only, without the ML pipeline (much faster)
         doc = nlp.make_doc(tweet.lower())
         tokens_alpha = [token.text for token in doc if token.is_alpha]
 
@@ -87,16 +87,16 @@ def filtrer_mots_courants(tweets, seuil_repetition=2):
         mots_gardes = []
         idx = 0
         for token in doc:
-            # Cas 1 : émoji → toujours conserver
+            # Case 1: emoji -> always keep
             if emoji.is_emoji(token.text):
                 mots_gardes.append(token.text)
                 continue
 
-            # Cas 2 : token non-alphabétique (ponctuation, chiffres...) → ignorer
+            # Case 2: non-alphabetic token (punctuation, digits...) -> ignore
             if not token.is_alpha:
                 continue
 
-            # Cas 3 : mot utile ou accentuation par répétition consécutive
+            # Case 3: useful word or emphasis through consecutive repetition
             if (
                 token.text not in liste_vide
                 or idx in indices_repetes
@@ -110,15 +110,15 @@ def filtrer_mots_courants(tweets, seuil_repetition=2):
 
 
 def a_lettres_repetees(mot, seuil=3):
-    """Retourne True si le mot contient une lettre répétée >= seuil fois d'affilée."""
+    """Returns True if the word contains a letter repeated >= seuil times in a row."""
     return bool(re.search(r'(.)\1{' + str(seuil - 1) + r',}', mot))
 
 
 def lemmatiser(tweets_filtres):
     """
-    Lemmatise chaque mot du tweet filtré.
-    Exception : les mots avec lettres répétées sont conservés tels quels.
-    Utilise nlp.pipe() en batch pour la performance.
+    Lemmatizes each word of the filtered tweet.
+    Exception: words with repeated letters are kept as they are.
+    Uses nlp.pipe() in batches for performance.
     """
     tweets_lemmatises = []
 
@@ -126,14 +126,14 @@ def lemmatiser(tweets_filtres):
         mots = []
         for token in doc:
             if a_lettres_repetees(token.text):
-                mots.append(token.text)   # emphase émotionnelle → pas de lemmatisation
+                mots.append(token.text)   # emotional emphasis -> no lemmatization
             else:
                 mots.append(token.lemma_)
         tweets_lemmatises.append(" ".join(mots))
 
     return tweets_lemmatises
 
-# Exemple d'utilisation
+# Usage example
 
 if __name__ == "__main__":
     tweets = liste_tweets_propres

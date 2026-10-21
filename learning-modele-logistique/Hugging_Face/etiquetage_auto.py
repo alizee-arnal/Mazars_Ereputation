@@ -1,51 +1,51 @@
 """
-Le code permert l'étiquetage automatique d'émotions sur 3000 tweets via un modèle pré-entraîné,
-qui est j-hartmann/emotion-english-distilroberta-base de HuggingFace.
-Le code nécessite les bibliothèques transformers, torch et tqdm.
+This code automatically labels emotions on 3000 tweets using a pre-trained model,
+namely j-hartmann/emotion-english-distilroberta-base from HuggingFace.
+The code requires the transformers, torch and tqdm libraries.
 """
 
 import pandas as pd
 from transformers import pipeline
 from tqdm import tqdm
 
-# Configuration : 
+# Configuration:
 
 FICHIER_SOURCE  = "data/tweets_traites.csv"
 FICHIER_SORTIE  = "data/tweets_entrainement.csv"
 NB_TWEETS       = 10000
-BATCH_SIZE      = 64    # tweets traités en parallèle 
+BATCH_SIZE      = 64    # tweets processed in parallel
 RANDOM_STATE    = 42
 
-# Le modèle utilise "joy" ; on le renomme "happiness" pour correspondre à nos étiquettes
+# The model uses "joy"; we rename it "happiness" to match our labels
 MAPPING_EMOTIONS = {"joy": "happiness"}
 
-# 1 : Chargement et échantillonnage des tweets à étiqueter.
+# 1: Loading and sampling the tweets to label.
 
 print("Chargement du CSV source...")
 df = pd.read_csv(FICHIER_SOURCE, sep=";", encoding="utf-8-sig")
 
-# On retire les tweets vides :
+# Remove empty tweets:
 df = df.dropna(subset=["tweet_lemmatise"])
 df = df[df["tweet_lemmatise"].str.strip() != ""]
 
-# Échantillon aléatoire de 3000 tweets :
+# Random sample of 3000 tweets:
 df_sample = df.sample(n=NB_TWEETS, random_state=RANDOM_STATE).reset_index(drop=True)
 print(f"{NB_TWEETS} tweets sélectionnés sur {len(df)} disponibles.")
 
-# 2: Chargement du modèle d'émotions de HuggingFace.
+# 2: Loading the HuggingFace emotion model.
 
 print("\nChargement du modèle d'émotions (téléchargement au premier lancement)...")
 classificateur = pipeline(
     task="text-classification",
     model="j-hartmann/emotion-english-distilroberta-base",
-    top_k=1,           # on veut uniquement l'émotion dominante
-    truncation=True,   # les tweets de plus de 512 tokens sont tronqués automatiquement
+    top_k=1,           # we only want the dominant emotion
+    truncation=True,   # tweets longer than 512 tokens are truncated automatically
     max_length=512,
 )
 print("Modèle prêt.\n")
 
 
-# 3 : Étiquetage des tweets.
+# 3: Labeling the tweets.
 
 textes = df_sample["tweet_lemmatise"].tolist()
 emotions = []
@@ -56,11 +56,11 @@ for i in tqdm(range(0, NB_TWEETS, BATCH_SIZE)):
     resultats = classificateur(batch)
     for res in resultats:
         label = res[0]["label"]
-        label = MAPPING_EMOTIONS.get(label, label)  # joy → happiness
+        label = MAPPING_EMOTIONS.get(label, label)  # joy -> happiness
         emotions.append(label)
 
 
-# 4 : Création du fichier de sortie et export en format CSV.
+# 4: Creating the output file and exporting it as CSV.
 
 df_sortie = pd.DataFrame({
     "tweet_filtre":   df_sample["tweet_lemmatise"].values,

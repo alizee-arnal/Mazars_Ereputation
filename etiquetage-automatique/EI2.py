@@ -5,23 +5,23 @@ from importlib import resources
 
 import pandas as pd
 
-# --- 1. Charger le lexique NRC (mot -> liste de catégories) ---
+# --- 1. Load the NRC lexicon (word -> list of categories) ---
 with resources.files("nrclex.data").joinpath("nrc_en.json").open(encoding="utf-8") as f:
     LEXIQUE = json.load(f)
 
-# Les 10 catégories du NRC
+# The 10 NRC categories
 EMOTIONS = ["anger", "anticipation", "disgust", "fear", "joy",
             "sadness", "surprise", "trust"]
 SENTIMENTS = ["positive", "negative"]
 CATEGORIES = EMOTIONS + SENTIMENTS
 
-# Vos classes cibles, dans un ORDRE FIXE qui sert à départager les égalités
-# (choix assumé et documenté : en cas d'égalité, la 1re de cette liste gagne)
+# Your target classes, in a FIXED ORDER used to break ties
+# (deliberate and documented choice: in case of a tie, the first one in this list wins)
 CIBLES = ["fear", "anger", "sadness", "disgust", "surprise", "joy"]
 
-# --- 2. Compter toutes les catégories d'un tweet ---
+# --- 2. Count all the categories of a tweet ---
 NEGATIONS = {"not", "no", "never", "without", "nor", "cannot","neither","couldn't","unable","don't"}
-# Dictionnaire des émojis par catégorie d'émotion
+# Dictionary of emojis per emotion category
 emotions_emojis = {
     "joie": [
         "😂", "😀", "😁", "😃", "😄", "😊", "🥰", "😍", "🎉", "✨", 
@@ -57,27 +57,27 @@ emotions_emojis = {
 
 def compter(texte):
     bruts = re.findall(rf"[A-Za-z']+[!?]*", str(texte))
-    mots = [re.sub(r"[!?]+$", "", b).lower() for b in bruts]    # versions propres
+    mots = [re.sub(r"[!?]+$", "", b).lower() for b in bruts]    # clean versions
     compte = Counter()
     
-    # --- 1. GESTION DES EMOJIS ---
-    # On parcourt directement le texte d'origine pour y chercher les émojis
+    # --- 1. EMOJI HANDLING ---
+    # Go through the original text directly to look for emojis
     for emotion, liste_emojis in emotions_emojis.items():
         for emoji in liste_emojis:
-            # On compte combien de fois cet émoji apparaît dans le texte
+            # Count how many times this emoji appears in the text
             nb_apparitions = texte.count(emoji)
             if nb_apparitions > 0:
                 compte[emotion] += nb_apparitions
 
     for i, mot in enumerate(mots):
-        poids = poids_intensite(bruts[i])           # intensité ciblée sur ce mot
+        poids = poids_intensite(bruts[i])           # intensity targeted at this word
         cats = LEXIQUE.get(mot)  
-        # None si mot absent
+        # None if the word is absent
         if not cats:
             continue
         precede_de_negation = i > 0 and (mots[i-1] in NEGATIONS or mots[i-2] in NEGATIONS or mots[i-3] in NEGATIONS) 
         if precede_de_negation:
-            # émotions niées -> non comptées ; valence inversée
+            # negated emotions -> not counted; valence inverted
             if "positive" in cats:
                 compte["negative"] += poids
             if "negative" in cats:
@@ -90,28 +90,28 @@ def compter(texte):
 
 
 def poids_intensite(brut):
-    """Poids >= 1 propre à CE mot (majuscules, '!', lettres répétées)."""
+    """Weight >= 1 specific to THIS word (capitals, '!', repeated letters)."""
     poids = 1.0
     noyau = re.sub(r"[!?]+$", "", brut)
-    if len(noyau) >= 3 and noyau.isupper():        # ce mot crié en MAJUSCULES
+    if len(noyau) >= 3 and noyau.isupper():        # this word shouted in CAPITAL LETTERS
         poids += 1.0
-    poids += min(brut.count("!"), 3) * 0.5         # '!' collés à ce mot
-    if re.search(r"([a-zA-Z])\1\1", brut):         # lettres répétées (sooo)
+    poids += min(brut.count("!"), 3) * 0.5         # '!' attached to this word
+    if re.search(r"([a-zA-Z])\1\1", brut):         # repeated letters (sooo)
         poids += 0.5
     return poids
 
 
-# --- 3. Émotion dominante parmi vos classes (départage déterministe) ---
+# --- 3. Dominant emotion among your classes (deterministic tie-breaking) ---
 def emotion_dominante(compte):
     meilleure, score_max = "neutral", 0
-    for emo in CIBLES:                                # parcours dans l'ordre fixe
-        if compte.get(emo, 0) > score_max:            # '>' strict : 1er en cas d'égalité
+    for emo in CIBLES:                                # go through in the fixed order
+        if compte.get(emo, 0) > score_max:            # strict '>': the first one wins in case of a tie
             score_max = compte[emo]
             meilleure = emo
     return meilleure
 
 
-# --- 4. Sentiment global (valence) ---
+# --- 4. Overall sentiment (valence) ---
 def sentiment_dominant(compte):
     pos, neg = compte.get("positive", 0), compte.get("negative", 0)
     if pos == 0 and neg == 0:
@@ -119,11 +119,11 @@ def sentiment_dominant(compte):
     return "positive" if pos >= neg else "negative"
 
     
-# --- 5. Appliquer à toute la base ---
+# --- 5. Apply to the whole dataset ---
 df = pd.read_csv("bdd_propre.csv")
 comptes = df["text_clean"].apply(compter)
 
-for cat in CATEGORIES:                                # une colonne par catégorie NRC
+for cat in CATEGORIES:                                # one column per NRC category
     df["nrc_" + cat] = comptes.apply(lambda c: c.get(cat, 0))
 
 df["emotion_nrc"] = comptes.apply(emotion_dominante)

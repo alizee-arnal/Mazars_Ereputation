@@ -6,18 +6,18 @@ import pandas as pd
 import spacy
 
 
-# Charger le lexique NRC
+# Load the NRC lexicon
 with resources.files("nrclex.data").joinpath("nrc_en.json").open(encoding="utf-8") as f:
     LEXIQUE = json.load(f)
 
-# Les 10 catégories du NRC
-EMOTIONS = ["disgust", "anger","anticipation", # chois des émotions et sentiments cibles, dans un ORDRE FIXE qui sert à départager les égalités
+# The 10 NRC categories
+EMOTIONS = ["disgust", "anger","anticipation", # choice of target emotions and sentiments, in a FIXED ORDER used to break ties
             "sadness", "surprise","joy","fear"]
 SENTIMENTS = ["positive", "negative"]
 CATEGORIES = EMOTIONS + SENTIMENTS
 
-# enrichissement avec un vocabulaire spécifique au contexte COVID, lemmatisé pour correspondre à votre texte lemmatisé
-covid_vocabularies_before_lemm = {#les mots neutres
+# enrichment with a COVID-specific vocabulary, lemmatized to match your lemmatized text
+covid_vocabularies_before_lemm = {#neutral words
     "neutral": [
         "coronavirus", "SARS-CoV-2", "epidemiology", "incubation period", "asymptomatic",
         "polymerase chain reaction", "antigen test", "antibodies", "viral load", "variant",
@@ -48,7 +48,7 @@ covid_vocabularies_before_lemm = {#les mots neutres
         "sanitizer", "hand sanitizer", "alcohol-based rub", "disinfectant wipe", "surface spray", "face shield", "surgical mask", "ffp2 respirator"
     ],
 
-    # les mots associés à la peur
+    # words associated with fear
     "fear": [
         "outbreak", "pandemic", "deadly", "fatal", "mortality", "death toll", "crisis",
         "emergency", "contamination", "contagious", "infection", "comorbidity", "respirator",
@@ -79,7 +79,7 @@ covid_vocabularies_before_lemm = {#les mots neutres
         "price gouging", "sanitizer shortage", "hoarded stock", "chemical burns"
     ],
 
-    # les mots associés à la joie
+    # words associated with joy
     "joy": [
         "recovery", "survived", "discharge", "immunity", "vaccine breakthrough", "rollout",
         "protection", "antibodies", "reopening", "lifting restrictions", "end of lockdown", "reunion",
@@ -112,38 +112,38 @@ covid_vocabularies_before_lemm = {#les mots neutres
 }
 
 
-# Lemmatisation du vocabulaire COVID pour correspondre à notre texte lemmatisé
-# 1-Charger le modèle linguistique anglais de spaCy
+# Lemmatize the COVID vocabulary to match our lemmatized text
+# 1-Load spaCy's English language model
 nlp = spacy.load("en_core_web_sm")
 
 def lemmatize_vocabulary(vocab_dict):
     lemmatized_dict = {}
 
     for category, terms in vocab_dict.items():
-        lemmatized_terms = set()  # Utilisation d'un set pour éviter les doublons générés
+        lemmatized_terms = set()  # Use a set to avoid generated duplicates
 
         for term in terms:
-            # Traiter l'expression (mot unique ou composé) avec spaCy
+            # Process the expression (single or compound word) with spaCy
             doc = nlp(term)
 
-            # Recomposer l'expression en utilisant le lemme de chaque mot
-            # .lemma_.lower() assure que tout reste propre et en minuscules
+            # Rebuild the expression using the lemma of each word
+            # .lemma_.lower() keeps everything clean and lowercase
             lemmatized_term = " ".join([token.lemma_.lower() for token in doc])
 
             lemmatized_terms.add(lemmatized_term)
 
-        # Re-convertir en liste triée pour garder le format d'origine
+        # Convert back to a sorted list to keep the original format
         lemmatized_dict[category] = sorted(list(lemmatized_terms))
 
     return lemmatized_dict
 
-# 2-Exécuter la lemmatisation
+# 2-Run the lemmatization
 covid_vocabularies = lemmatize_vocabulary(covid_vocabularies_before_lemm)
 
 
-# Definir les négations possibles
+# Define the possible negations
 NEGATIONS = {"not", "no", "never", "without", "nor", "cannot","neither","couldn't","unable","don't"}
-# Dictionnaire des émojis par catégorie d'émotion
+# Dictionary of emojis per emotion category
 emotions_emojis = {
     "joie": [
         "😂", "😀", "😁", "😃", "😄", "😊", "🥰", "😍", "🎉", "✨",
@@ -179,15 +179,15 @@ EMOJI_EMOTION = {"joie":"joy", "tristesse":"sadness", "peur":"fear",
                  "colère":"anger", "anticipation":"anticipation",
                  "dégout":"disgust", "neutre":"neutral"}
 
-#évaluer les sentiments dans chaque tweet
+#evaluate the sentiments in each tweet
 def compter(texte, nb_exclam=0):
     texte = str(texte)
     bruts = re.findall(r"[A-Za-z']+", texte)
     mots = [b.lower() for b in bruts]
     compte = Counter()
 
-    # bonus d'intensité GLOBAL venant du tableau (les '!' ont été retirés du texte)
-    bonus_exclam = min(nb_exclam, 3) * 0.5            # +0.5 par '!', plafonné à 3
+    # GLOBAL intensity bonus from the table column ('!' were removed from the text)
+    bonus_exclam = min(nb_exclam, 3) * 0.5            # +0.5 per '!', capped at 3
 
     # emojis
     for emotion_fr, liste_emojis in emotions_emojis.items():
@@ -197,11 +197,11 @@ def compter(texte, nb_exclam=0):
             if nb > 0:
                 compte[cible] += 2 * nb
 
-    # étiquetage par les mots du lexique + vocabulaire COVID
+    # tagging with the lexicon words + COVID vocabulary
     for i, mot in enumerate(mots):
-        poids = poids_intensite(bruts[i]) + bonus_exclam   # répétitions (texte) + '!' (tableau)
+        poids = poids_intensite(bruts[i]) + bonus_exclam   # repetitions (text) + '!' (table)
         cats = LEXIQUE.get(mot)
-        if not cats: # pour le lexique spécifique au covid
+        if not cats: # for the COVID-specific lexicon
             if mot in covid_vocabularies["neutral"]:
                 compte["neutral"] += poids
             elif mot in covid_vocabularies["joy"]:
@@ -213,49 +213,49 @@ def compter(texte, nb_exclam=0):
                 compte["negative"] += poids
             continue
         precede_de_negation = any(mots[j] in NEGATIONS for j in range(max(0, i - 3), i))
-        if precede_de_negation: # quand il y a une négation dans les 3 mots précédents, on inverse le poids des catégories positive/negative
+        if precede_de_negation: # when there is a negation in the 3 preceding words, invert the weight of the positive/negative categories
             if "positive" in cats:
                 compte["negative"] += 2 * poids
             if "negative" in cats:
                 compte["positive"] += 2 * poids
         else:
-            for c in cats: # les catégories du lexique sont comptées normalement
+            for c in cats: # the lexicon categories are counted normally
                 compte[c] += poids
     return compte
 
-# poids d'intensité : +1 pour les mots en MAJUSCULES, +0.5 pour les mots avec une lettre répétée (sooo, whatttt)
+# intensity weight: +1 for CAPITALIZED words, +0.5 for words with a repeated letter (sooo, whatttt)
 def poids_intensite(brut):
-    """Poids >= 1 : lettres répétées (conservées dans le texte) + éventuelles majuscules."""
+    """Weight >= 1: repeated letters (kept in the text) + possible capitals."""
     poids = 1.0
-    if len(brut) >= 3 and brut.isupper():          # mot crié en MAJUSCULES
+    if len(brut) >= 3 and brut.isupper():          # word shouted in CAPITAL LETTERS
         poids += 1.0
-    if re.search(r"([a-zA-Z])\1\1", brut):         # lettres répétées : sooo, whattttt
+    if re.search(r"([a-zA-Z])\1\1", brut):         # repeated letters: sooo, whattttt
         poids += 0.5
     return poids
 
-## Déduction des émotions et sentiments
-#  Émotion dominante
+## Deducing emotions and sentiments
+#  Dominant emotion
 def emotion_dominante(compte):
     meilleure, score_max = "neutral", 0
-    for emo in EMOTIONS:                                # parcours dans l'ordre fixe
-        if compte.get(emo, 0) > score_max:            #  d'ou la liste ordonnée des émotions qui sert à départager les égalités
+    for emo in EMOTIONS:                                # go through in the fixed order
+        if compte.get(emo, 0) > score_max:            #  hence the ordered list of emotions used to break ties
             score_max = compte[emo]
             meilleure = emo
     return meilleure
 
 
-# Sentiment global
+# Overall sentiment
 def sentiment_dominant(compte):
     pos, neg = compte.get("positive", 0), compte.get("negative", 0)
-    if pos == 0 and neg == 0: # neutre si positif ninégatif
+    if pos == 0 and neg == 0: # neutral if neither positive nor negative
         return "neutral"
     return "positive" if pos >= neg else "negative"
 
 
-# Appliquer à notre fichier de tweet néttoyés et lemmatisés
+# Apply to our file of cleaned and lemmatized tweets
 df = pd.read_csv("tweets_traites.csv", sep=";")
 
-# on applique compter en lui donnant le texte et le nb d'exclamations de la même ligne
+# apply compter giving it the text and the number of exclamations from the same row
 comptes = df.apply(lambda row: compter(row["tweet_lemmatise"], row["exclamations"]), axis=1)
 
 for cat in CATEGORIES:

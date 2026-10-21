@@ -1,38 +1,38 @@
 
-'''Ce code permet de  : 
--Charger la base de données, 
--D'extraire le contenu des tweets sous forme de liste
--De nettoyer les tweets en supprimant les liens. '''
+'''This code is used to: 
+-Load the database, 
+-Extract the content of the tweets as a list
+-Clean the tweets by removing the links. '''
 import pandas as pd
 import re
 
 
-# 1. Charger le fichier CSV en mémoire (création d'un "DataFrame")
+# 1. Load the CSV file into memory (creation of a "DataFrame")
 df = pd.read_csv('data/covid19_tweets.csv')
 
-# 2. Extraire uniquement la colonne qui vous intéresse
+# 2. Extract only the column you are interested in
 colonne_tweets = df['text']
 
-# 3. (Optionnel) Convertir cette colonne en une vraie liste Python 
-# pour pouvoir boucler dessus plus tard lors du nettoyage
+# 3. (Optional) Convert this column into a real Python list
+# so that we can loop over it later during the cleaning
 liste_tweets = colonne_tweets.tolist()
 
 
-# Imaginons que votre liste actuelle s'appelle 'liste_tweets'
+# Let's say your current list is called 'liste_tweets'
 liste_tweets_propres = []
 
-# Le "motif" qui détecte tout ce qui commence par http ou https
+# The "pattern" that detects everything starting with http or https
 motif_lien = r"https?://\S+"
 
 for tweet in liste_tweets:
-    # 1. On vérifie que le tweet est bien du texte (pour éviter les erreurs sur les cases vides)
+    # 1. Check that the tweet is really text (to avoid errors on empty cells)
     tweet = str(tweet)
     
-    # 2. re.sub va remplacer le motif_lien par du vide ('') dans le tweet
+    # 2. re.sub replaces the motif_lien pattern with nothing ('') in the tweet
     tweet_nettoye = re.sub(motif_lien, '', tweet)
     
-    # 3. .strip() enlève les espaces vides inutiles au début ou à la fin
+    # 3. .strip() removes useless whitespace at the start or end
     liste_tweets_propres.append(tweet_nettoye.strip())
 
-# Afficher les 5 premiers pour vérifier
+# Display the first 5 to check
 print(liste_tweets_propres[:5])

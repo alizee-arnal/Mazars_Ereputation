@@ -1,9 +1,9 @@
 """
-Classification d'émotions de tweets COVID-19 par régression logistique
- parmis les émotions suivantes : disgust, anger, happiness, fear, sadness, neutral.
-On le fait en ayant accès à plusieurs types de features :
-  - le texte du tweet, vectorisé en TF-IDF
-  - des features numériques déjà calculées (pct_majuscules, exclamations, interrogations)
+Emotion classification of COVID-19 tweets with logistic regression
+ among the following emotions: disgust, anger, happiness, fear, sadness, neutral.
+It uses several types of features:
+  - the tweet text, vectorized with TF-IDF
+  - precomputed numeric features (pct_majuscules, exclamations, interrogations)
 """
 
 import pandas as pd
@@ -19,28 +19,28 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
-# 1 : Configuration globale :
+# 1: Global configuration:
 
-FICHIER_TRAIN  = "data/tweets_entrainement.csv"   # Fichier correspondant aux tweets étiquetés automatiquement.
-FICHIER_TEST   = "data/Classeur2.xlsx"             # Fichier correspondant aux tweets étiquetés à la main.
+FICHIER_TRAIN  = "data/tweets_entrainement.csv"   # File containing the automatically labeled tweets.
+FICHIER_TEST   = "data/Classeur2.xlsx"             # File containing the manually labeled tweets.
 SEPARATEUR     = ";"
 
 COLONNE_TEXTE = "tweet_filtre"
 COLONNES_NUM  = ["pct_majuscules", "exclamations", "interrogations"]
 COLONNE_LABEL = "emotion"
 
-# Remapping des émotions du Classeur2 vers nos étiquettes :
+# Remapping of the emotions of Classeur2 to our labels:
 REMAPPING_EMOTIONS = {
     "joy":           "happiness",
     "anticipation":  "neutral",
 }
 
-RANDOM_STATE = 42 # Facteur utilisé pour la reproductibilité des résultats.
+RANDOM_STATE = 42 # Seed used for reproducible results.
 
-# 2 : Chargement des données.
+# 2: Loading the data.
 
 def charger_train(chemin):
-    '''Charge les données d'entraînement depuis un fichier CSV.'''
+    '''Loads the training data from a CSV file.'''
     df = pd.read_csv(chemin, sep=SEPARATEUR)
     df = df.dropna(subset=[COLONNE_TEXTE, COLONNE_LABEL])
     df[COLONNE_TEXTE] = df[COLONNE_TEXTE].astype(str)
@@ -49,17 +49,17 @@ def charger_train(chemin):
     return df
 
 def charger_test(chemin):
-    '''Charge les données de test depuis un fichier Excel.'''
+    '''Loads the test data from an Excel file.'''
     df = pd.read_excel(chemin)
 
-    # On garde uniquement les tweets avec une émotion renseignée
+    # Keep only the tweets with an emotion filled in
     df = df.dropna(subset=["text", "Emotion"])
     df = df.rename(columns={"text": COLONNE_TEXTE, "Emotion": COLONNE_LABEL})
 
-    # Remapping des émotions vers des étiquettes : joy → happiness, anticipation → neutral
+    # Remapping of emotions to labels: joy -> happiness, anticipation -> neutral
     df[COLONNE_LABEL] = df[COLONNE_LABEL].replace(REMAPPING_EMOTIONS)
 
-    # Calcul des features numériques depuis le texte :
+    # Computation of the numeric features from the text:
     df["pct_majuscules"] = df[COLONNE_TEXTE].apply(
         lambda t: round(sum(1 for c in t if c.isupper()) / max(sum(1 for c in t if c.isalpha()), 1) * 100, 2)
     )
@@ -72,22 +72,22 @@ def charger_test(chemin):
     print(df[COLONNE_LABEL].value_counts(), "\n")
     return df
 
-# 3 : Construction du pipeline de traitement et de classification.
+# 3: Building the processing and classification pipeline.
 
 def construire_pipeline():
     """
-    Cette fonction se divise essentiellement en 2 étapes :
-    La première, ColumnTransformer, applique un traitement différent à chaque type de feature :
-      - TF-IDF sur le texte
-      - standardisation (centrage/réduction) sur les features numériques ( pourcentage de majuscule, nombre d'exclamations/interrogations )
-    La seconde, Pipeline, combine ces traitements avec un modèle de regression logistique.
+    This function essentially has 2 steps:
+    The first, ColumnTransformer, applies a different treatment to each type of feature:
+      - TF-IDF on the text
+      - standardization (centering/scaling) on the numeric features (percentage of uppercase letters, number of exclamation/question marks)
+    The second, Pipeline, combines these treatments with a logistic regression model.
     """
     preprocessing = ColumnTransformer(
         transformers=[
             ("texte", TfidfVectorizer(
-                ngram_range=(1, 2),   # unigrammes + bigrammes
-                min_df=2,             # ignore les mots apparaissant 1 seule fois
-                max_features=5000,    # limite la dimension du vocabulaire
+                ngram_range=(1, 2),   # unigrams + bigrams
+                min_df=2,             # ignore words that appear only once
+                max_features=5000,    # limit the vocabulary size
             ), COLONNE_TEXTE),
             ("num", StandardScaler(), COLONNES_NUM),
         ]
@@ -95,8 +95,8 @@ def construire_pipeline():
 
     modele = LogisticRegression(
         max_iter=1000,
-        class_weight="balanced",  # Permet de compenser le déséquilibre des classes.
-        C=1.0,                    # Hyperparamètre correspondant à l'inverse de lamba dans la regression RIDGE.
+        class_weight="balanced",  # Compensates for the class imbalance.
+        C=1.0,                    # Hyperparameter corresponding to the inverse of lambda in RIDGE regression.
     )
 
     return Pipeline([
@@ -104,11 +104,11 @@ def construire_pipeline():
         ("classifier", modele),
     ])
 
-# 4 : Entraînement et évaluation du modèle.
+# 4: Training and evaluation of the model.
 
 def entrainer_et_evaluer(df_train, df_test):
-    ''' Entraîne le modèle sur df_train et l'évalue sur df_test, 
-        tout en  affichant un rapport de classification et une matrice de confusion.'''
+    ''' Trains the model on df_train and evaluates it on df_test, 
+        while displaying a classification report and a confusion matrix.'''
     X_train = df_train[[COLONNE_TEXTE] + COLONNES_NUM]
     y_train = df_train[COLONNE_LABEL]
 
@@ -139,10 +139,10 @@ def entrainer_et_evaluer(df_train, df_test):
 
     return pipeline
 
-# 5 : Détermination des mots les plus importants pour chaque émotion.
+# 5: Finding the most important words for each emotion.
 
 def mots_importants(pipeline, n=10):
-    """Affiche, pour chaque émotion, les mots qui poussent le plus vers cette classe."""
+    """Displays, for each emotion, the words that push the most towards this class."""
     vectorizer = pipeline.named_steps["preprocessing"].named_transformers_["texte"]
     classifier = pipeline.named_steps["classifier"]
     noms_features = list(vectorizer.get_feature_names_out()) + COLONNES_NUM
@@ -157,14 +157,14 @@ def mots_importants(pipeline, n=10):
         print(f"\n{classe} : {', '.join(mots)}")
     print()
 
-# 6 : Prédiction sur de nouveaux tweets.
+# 6: Prediction on new tweets.
 
 def predire(pipeline, df_nouveaux):
-    """df_nouveaux doit avoir les colonnes tweet_filtre et features numériques."""
+    """df_nouveaux must have the columns tweet_filtre and numeric features."""
     X = df_nouveaux[[COLONNE_TEXTE] + COLONNES_NUM]
     return pipeline.predict(X)
 
-# 7 : Exécution principale du code : 
+# 7: Main execution of the code:
 
 if __name__ == "__main__":
     df_train = charger_train(FICHIER_TRAIN)
@@ -172,11 +172,11 @@ if __name__ == "__main__":
     pipeline = entrainer_et_evaluer(df_train, df_test)
     mots_importants(pipeline)
 
-    # Sauvegarde du modèle entraîné pour réutilisation
+    # Save the trained model for reuse
     joblib.dump(pipeline, "modele_emotions.joblib")
     print("Modèle sauvegardé : modele_emotions.joblib")
 
-    # Pour recharger plus tard :
+    # To reload it later:
     #   pipeline = joblib.load("modele_emotions.joblib")
     #   predictions = predire(pipeline, df_a_classer)
     

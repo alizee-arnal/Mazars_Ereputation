@@ -1,4 +1,4 @@
-# Réseau de neurone pour les émotions
+# Neural network for emotions
 
 import numpy as np
 import pandas as pd
@@ -9,7 +9,7 @@ from sklearn.metrics import classification_report, confusion_matrix, ConfusionMa
 import tensorflow as tf
 from tensorflow.keras import layers, models
 
-# 1. CHARGEMENT DES DONNÉES 
+# 1. LOADING THE DATA
 
 print("--- Étape 1 : Chargement de la base de données ---")
 
@@ -22,30 +22,30 @@ print(f"Colonnes disponibles : {list(df.columns)}")
 colonnes_scores = ["anger", "anticipation", "disgust", "fear", "joy",
             "sadness", "surprise"]
 
-#vérification que toutes les colonnes existent
+#check that all columns exist
 for col in colonnes_scores:
     if col not in df.columns:
         raise ValueError(f"Colonne manquante dans le CSV : '{col}'")
 
-#definition des entrées (textes) et des cibles
+#define the inputs (texts) and the targets
 tweets_textes = df['tweet_lemmatise'].astype(str).tolist()
 y_scores_bruts = df[colonnes_scores].values
 y_etiquettes_vraies = df['emotion'].astype(str).values
 
-# Ajout d'une colonne "neutral" pour les tweets sans émotion
+# Add a "neutral" column for tweets without emotion
 somme_autres_emotions = np.sum(y_scores_bruts, axis=1)
 score_neutre = (somme_autres_emotions == 0).astype(int)
 y_scores_bruts = np.column_stack((y_scores_bruts, score_neutre))
 colonnes_scores_avec_neutral = colonnes_scores + ["neutral"]
 
-# Normalisation des scores entre 0 et 1
+# Normalize the scores between 0 and 1
 max_score_possible = y_scores_bruts.max()
 if max_score_possible == 0:
     raise ValueError("Tous les scores sont à 0, vérifiez votre fichier CSV.")
 y_scores_normalises = y_scores_bruts / max_score_possible
 print("Scores normalisés")
 
-# Filtrage : on ne garde que les tweets dont l'étiquette 'emotion' est dans nos colonnes connues
+# Filtering: keep only the tweets whose 'emotion' label is among our known columns
 etiquettes_valides = set(colonnes_scores_avec_neutral)
 masque = np.array([e in etiquettes_valides for e in y_etiquettes_vraies])
 tweets_textes = [t for t, m in zip(tweets_textes, masque) if m]
@@ -57,22 +57,22 @@ print("\nÉtape 2 : Extraction des embeddings avec SpaCy")
 nlp = spacy.load("en_core_web_md", disable=["ner", "parser"])
 
 vecteurs_tweets = []
-for doc in nlp.pipe(tweets_textes, batch_size=64):  # batch_size réduit pour Colab
+for doc in nlp.pipe(tweets_textes, batch_size=64):  # smaller batch_size for Colab
     vecteurs_tweets.append(doc.vector)
 
 X = np.array(vecteurs_tweets)
 print(f"Matrice d'embeddings X extraite. Taille : {X.shape}")
 
-#Separation des données en 80% entrainement, 20% test
+#Split the data: 80% training, 20% test
 
 print("\nÉtape 3 : Séparation des données (80% Train / 20% Test)")
 
-# Vérification qu'on a assez de données pour stratifier
+# Check that there is enough data to stratify
 from collections import Counter
 comptage = Counter(y_etiquettes_vraies)
 print(f"Distribution des émotions : {dict(comptage)}")
 
-# On ne stratifie que si chaque classe a au moins 2 exemples
+# Only stratify if each class has at least 2 examples
 peut_stratifier = all(v >= 2 for v in comptage.values())
 
 X_train, X_test, y_train_scores, y_test_scores, y_train_labels, y_test_labels = train_test_split(
@@ -85,11 +85,11 @@ X_train, X_test, y_train_scores, y_test_scores, y_train_labels, y_test_labels = 
 print(f"Tweets pour l'entraînement : {X_train.shape[0]}")
 print(f"Tweets pour le test        : {X_test.shape[0]}")
 
-#ARCHITECTURE ET ENTRAÎNEMENT DU RÉSEAU DE NEURONES
+#NEURAL NETWORK ARCHITECTURE AND TRAINING
 
 print("\nÉtape 4 : Configuration et entraînement du Réseau de Neurones")
 
-n_sorties = len(colonnes_scores_avec_neutral)  # 9(8 emotions+neutral)
+n_sorties = len(colonnes_scores_avec_neutral)  # 9 (8 emotions + neutral)
 
 model = models.Sequential([
     layers.Input(shape=(300,)),
@@ -111,13 +111,13 @@ model.summary()
 history = model.fit(
     X_train, y_train_scores,
     epochs=12,
-    batch_size=32,          # batch réduit pour petits datasets
+    batch_size=32,          # smaller batch for small datasets
     validation_split=0.1,
     verbose=1
 )
 print("Entraînement terminé !")
 
-#EVALUATION ET MATRICE DE CONFUSION
+#EVALUATION AND CONFUSION MATRIX
 
 print("Étape 5 : Évaluation sur les données de Test")
 
@@ -126,7 +126,7 @@ y_pred_scores = model.predict(X_test)
 indices_max_predits = np.argmax(y_pred_scores, axis=1)
 y_pred_labels = np.array([colonnes_scores_avec_neutral[idx] for idx in indices_max_predits])
 
-# On aligne les étiquettes présentes réellement pour le rapport
+# Align the labels actually present for the report
 etiquettes_presentes = sorted(set(y_test_labels) | set(y_pred_labels))
 
 print("\n=================== RAPPORT DE CLASSIFICATION ===================")
